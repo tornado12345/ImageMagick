@@ -18,13 +18,13 @@
 %                                March 2000                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://www.imagemagick.org/script/license.php                           %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -36,8 +36,7 @@
 %
 %
 */
-
-
+
 /*
   Include declarations.
 */
@@ -62,6 +61,7 @@
 #include "MagickCore/log.h"
 #include "MagickCore/magick.h"
 #include "MagickCore/memory_.h"
+#include "MagickCore/memory-private.h"
 #include "MagickCore/module.h"
 #include "MagickCore/monitor.h"
 #include "MagickCore/monitor-private.h"
@@ -76,7 +76,7 @@
 #include "MagickCore/utility.h"
 #if defined(MAGICKCORE_XML_DELEGATE)
 #  if defined(MAGICKCORE_WINDOWS_SUPPORT)
-#    if !defined(__MINGW32__) && !defined(__MINGW64__)
+#    if !defined(__MINGW32__)
 #      include <win32config.h>
 #    endif
 #  endif
@@ -100,8 +100,7 @@
 #include "librsvg/librsvg-features.h"
 #endif
 #endif
-
-
+
 /*
   Typedef declarations.
 */
@@ -185,16 +184,17 @@ typedef struct _SVGInfo
   xmlDocPtr
     document;
 #endif
+
+  ssize_t
+    svgDepth;
 } SVGInfo;
-
-
+
 /*
   Forward declarations.
 */
 static MagickBooleanType
   WriteSVGImage(const ImageInfo *,Image *,ExceptionInfo *);
-
-
+
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %                                                                             %
@@ -228,7 +228,7 @@ static MagickBooleanType IsSVG(const unsigned char *magick,const size_t length)
     return(MagickTrue);
   return(MagickFalse);
 }
-
+
 #if defined(MAGICKCORE_XML_DELEGATE)
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -265,11 +265,9 @@ static SVGInfo *AcquireSVGInfo(void)
   svg_info=(SVGInfo *) AcquireMagickMemory(sizeof(*svg_info));
   if (svg_info == (SVGInfo *) NULL)
     return((SVGInfo *) NULL);
-  (void) ResetMagickMemory(svg_info,0,sizeof(*svg_info));
+  (void) memset(svg_info,0,sizeof(*svg_info));
   svg_info->text=AcquireString("");
-  svg_info->scale=(double *) AcquireMagickMemory(sizeof(*svg_info->scale));
-  if (svg_info->scale == (double *) NULL)
-    ThrowFatalException(ResourceLimitFatalError,"MemoryAllocationFailed");
+  svg_info->scale=(double *) AcquireCriticalMemory(sizeof(*svg_info->scale));
   GetAffineMatrix(&svg_info->affine);
   svg_info->scale[0]=ExpandAffine(&svg_info->affine);
   return(svg_info);
@@ -330,17 +328,17 @@ static double GetUserSpaceCoordinateValue(const SVGInfo *svg_info,int type,
     }
   GetNextToken(p,&p,MagickPathExtent,token);
   if (LocaleNCompare(token,"cm",2) == 0)
-    return(DefaultResolution*svg_info->scale[0]/2.54*value);
+    return(96.0*svg_info->scale[0]/2.54*value);
   if (LocaleNCompare(token,"em",2) == 0)
     return(svg_info->pointsize*value);
   if (LocaleNCompare(token,"ex",2) == 0)
     return(svg_info->pointsize*value/2.0);
   if (LocaleNCompare(token,"in",2) == 0)
-    return(DefaultResolution*svg_info->scale[0]*value);
+    return(96.0*svg_info->scale[0]*value);
   if (LocaleNCompare(token,"mm",2) == 0)
-    return(DefaultResolution*svg_info->scale[0]/25.4*value);
+    return(96.0*svg_info->scale[0]/25.4*value);
   if (LocaleNCompare(token,"pc",2) == 0)
-    return(DefaultResolution*svg_info->scale[0]/6.0*value);
+    return(96.0*svg_info->scale[0]/6.0*value);
   if (LocaleNCompare(token,"pt",2) == 0)
     return(1.25*svg_info->scale[0]*value);
   if (LocaleNCompare(token,"px",2) == 0)
@@ -367,7 +365,7 @@ static void StripStyleTokens(char *message)
   q=message+length-1;
   while ((isspace((int) ((unsigned char) *q)) != 0) && (q > p))
     q--;
-  (void) CopyMagickMemory(message,p,(size_t) (q-p+1));
+  (void) memcpy(message,p,(size_t) (q-p+1));
   message[q-p+1]='\0';
   StripString(message);
 }
@@ -788,8 +786,18 @@ static void SVGEndDocument(void *context)
 static void SVGStartElement(void *context,const xmlChar *name,
   const xmlChar **attributes)
 {
+#define PushGraphicContext(id) \
+{ \
+  if (*id == '\0') \
+    (void) FormatLocaleFile(svg_info->file,"push graphic-context\n"); \
+  else \
+    (void) FormatLocaleFile(svg_info->file,"push graphic-context \"%s\"\n", \
+      id); \
+}
+
   char
     *color,
+    background[MagickPathExtent],
     id[MagickPathExtent],
     *next_token,
     token[MagickPathExtent],
@@ -831,7 +839,17 @@ static void SVGStartElement(void *context,const xmlChar *name,
   units=AcquireString("userSpaceOnUse");
   *id='\0';
   *token='\0';
+  *background='\0';
   value=(const char *) NULL;
+  if ((LocaleCompare((char *) name,"image") == 0) ||
+      (LocaleCompare((char *) name,"pattern") == 0) ||
+      (LocaleCompare((char *) name,"rect") == 0) ||
+      (LocaleCompare((char *) name,"text") == 0) ||
+      (LocaleCompare((char *) name,"use") == 0))
+    {
+      svg_info->bounds.x=0.0;
+      svg_info->bounds.y=0.0;
+    }
   if (attributes != (const xmlChar **) NULL)
     for (i=0; (attributes[i] != (const xmlChar *) NULL); i+=2)
     {
@@ -921,8 +939,9 @@ static void SVGStartElement(void *context,const xmlChar *name,
         {
           if (LocaleCompare(keyword,"x") == 0)
             {
-              svg_info->bounds.x=GetUserSpaceCoordinateValue(svg_info,1,value)-
-                svg_info->center.x;
+              if (LocaleCompare((char *) name,"tspan") != 0)
+                svg_info->bounds.x=GetUserSpaceCoordinateValue(svg_info,1,value)-
+                  svg_info->center.x;
               break;
             }
           if (LocaleCompare(keyword,"x1") == 0)
@@ -944,20 +963,21 @@ static void SVGStartElement(void *context,const xmlChar *name,
         {
           if (LocaleCompare(keyword,"y") == 0)
             {
-              svg_info->bounds.y=GetUserSpaceCoordinateValue(svg_info,-1,value)-
-                svg_info->center.y;
+              if (LocaleCompare((char *) name,"tspan") != 0)
+                svg_info->bounds.y=GetUserSpaceCoordinateValue(svg_info,-1,
+                  value)-svg_info->center.y;
               break;
             }
           if (LocaleCompare(keyword,"y1") == 0)
             {
-              svg_info->segment.y1=
-                GetUserSpaceCoordinateValue(svg_info,-1,value);
+              svg_info->segment.y1=GetUserSpaceCoordinateValue(svg_info,-1,
+                value);
               break;
             }
           if (LocaleCompare(keyword,"y2") == 0)
             {
-              svg_info->segment.y2=
-                GetUserSpaceCoordinateValue(svg_info,-1,value);
+              svg_info->segment.y2=GetUserSpaceCoordinateValue(svg_info,-1,
+                value);
               break;
             }
           break;
@@ -981,12 +1001,12 @@ static void SVGStartElement(void *context,const xmlChar *name,
     {
       if (LocaleCompare((const char *) name,"circle") == 0)
         {
-          (void) FormatLocaleFile(svg_info->file,"push graphic-context\n");
+          PushGraphicContext(id);
           break;
         }
       if (LocaleCompare((const char *) name,"clipPath") == 0)
         {
-          (void) FormatLocaleFile(svg_info->file,"push clip-path '%s'\n",id);
+          (void) FormatLocaleFile(svg_info->file,"push clip-path \"%s\"\n",id);
           break;
         }
       break;
@@ -1006,7 +1026,17 @@ static void SVGStartElement(void *context,const xmlChar *name,
     {
       if (LocaleCompare((const char *) name,"ellipse") == 0)
         {
-          (void) FormatLocaleFile(svg_info->file,"push graphic-context\n");
+          PushGraphicContext(id);
+          break;
+        }
+      break;
+    }
+    case 'F':
+    case 'f':
+    {
+      if (LocaleCompare((const char *) name,"foreignObject") == 0)
+        {
+          PushGraphicContext(id);
           break;
         }
       break;
@@ -1016,7 +1046,7 @@ static void SVGStartElement(void *context,const xmlChar *name,
     {
       if (LocaleCompare((const char *) name,"g") == 0)
         {
-          (void) FormatLocaleFile(svg_info->file,"push graphic-context\n");
+          PushGraphicContext(id);
           break;
         }
       break;
@@ -1026,7 +1056,7 @@ static void SVGStartElement(void *context,const xmlChar *name,
     {
       if (LocaleCompare((const char *) name,"image") == 0)
         {
-          (void) FormatLocaleFile(svg_info->file,"push graphic-context\n");
+          PushGraphicContext(id);
           break;
         }
       break;
@@ -1036,15 +1066,25 @@ static void SVGStartElement(void *context,const xmlChar *name,
     {
       if (LocaleCompare((const char *) name,"line") == 0)
         {
-          (void) FormatLocaleFile(svg_info->file,"push graphic-context\n");
+          PushGraphicContext(id);
           break;
         }
       if (LocaleCompare((const char *) name,"linearGradient") == 0)
         {
           (void) FormatLocaleFile(svg_info->file,
-            "push gradient '%s' linear %g,%g %g,%g\n",id,
+            "push gradient \"%s\" linear %g,%g %g,%g\n",id,
             svg_info->segment.x1,svg_info->segment.y1,svg_info->segment.x2,
             svg_info->segment.y2);
+          break;
+        }
+      break;
+    }
+    case 'M':
+    case 'm':
+    {
+      if (LocaleCompare((const char *) name,"mask") == 0)
+        {
+          (void) FormatLocaleFile(svg_info->file,"push mask \"%s\"\n",id);
           break;
         }
       break;
@@ -1054,25 +1094,25 @@ static void SVGStartElement(void *context,const xmlChar *name,
     {
       if (LocaleCompare((const char *) name,"path") == 0)
         {
-          (void) FormatLocaleFile(svg_info->file,"push graphic-context\n");
+          PushGraphicContext(id);
           break;
         }
       if (LocaleCompare((const char *) name,"pattern") == 0)
         {
           (void) FormatLocaleFile(svg_info->file,
-            "push pattern '%s' %g,%g %g,%g\n",id,
+            "push pattern \"%s\" %g,%g %g,%g\n",id,
             svg_info->bounds.x,svg_info->bounds.y,svg_info->bounds.width,
             svg_info->bounds.height);
           break;
         }
       if (LocaleCompare((const char *) name,"polygon") == 0)
         {
-          (void) FormatLocaleFile(svg_info->file,"push graphic-context\n");
+          PushGraphicContext(id);
           break;
         }
       if (LocaleCompare((const char *) name,"polyline") == 0)
         {
-          (void) FormatLocaleFile(svg_info->file,"push graphic-context\n");
+          PushGraphicContext(id);
           break;
         }
       break;
@@ -1083,7 +1123,7 @@ static void SVGStartElement(void *context,const xmlChar *name,
       if (LocaleCompare((const char *) name,"radialGradient") == 0)
         {
           (void) FormatLocaleFile(svg_info->file,
-            "push gradient '%s' radial %g,%g %g,%g %g\n",
+            "push gradient \"%s\" radial %g,%g %g,%g %g\n",
             id,svg_info->element.cx,svg_info->element.cy,
             svg_info->element.major,svg_info->element.minor,
             svg_info->element.angle);
@@ -1091,7 +1131,7 @@ static void SVGStartElement(void *context,const xmlChar *name,
         }
       if (LocaleCompare((const char *) name,"rect") == 0)
         {
-          (void) FormatLocaleFile(svg_info->file,"push graphic-context\n");
+          PushGraphicContext(id);
           break;
         }
       break;
@@ -1099,9 +1139,22 @@ static void SVGStartElement(void *context,const xmlChar *name,
     case 'S':
     case 's':
     {
+      if (LocaleCompare((const char *) name,"symbol") == 0)
+        {
+          (void) FormatLocaleFile(svg_info->file,"push symbol\n");
+          break;
+        }
       if (LocaleCompare((const char *) name,"svg") == 0)
         {
-          (void) FormatLocaleFile(svg_info->file,"push graphic-context\n");
+          svg_info->svgDepth++;
+          PushGraphicContext(id);
+          (void) FormatLocaleFile(svg_info->file,"compliance \"SVG\"\n");
+          (void) FormatLocaleFile(svg_info->file,"fill \"black\"\n");
+          (void) FormatLocaleFile(svg_info->file,"fill-opacity 1\n");
+          (void) FormatLocaleFile(svg_info->file,"stroke \"none\"\n");
+          (void) FormatLocaleFile(svg_info->file,"stroke-width 1\n");
+          (void) FormatLocaleFile(svg_info->file,"stroke-opacity 1\n");
+          (void) FormatLocaleFile(svg_info->file,"fill-rule nonzero\n");
           break;
         }
       break;
@@ -1111,7 +1164,7 @@ static void SVGStartElement(void *context,const xmlChar *name,
     {
       if (LocaleCompare((const char *) name,"text") == 0)
         {
-          (void) FormatLocaleFile(svg_info->file,"push graphic-context\n");
+          PushGraphicContext(id);
           svg_info->bounds.x=0.0;
           svg_info->bounds.y=0.0;
           svg_info->bounds.width=0.0;
@@ -1132,7 +1185,7 @@ static void SVGStartElement(void *context,const xmlChar *name,
                 *text;
 
               text=EscapeString(svg_info->text,'\'');
-              (void) FormatLocaleFile(svg_info->file,"text %g,%g '%s'\n",
+              (void) FormatLocaleFile(svg_info->file,"text %g,%g \"%s\"\n",
                 svg_info->bounds.x-svg_info->center.x,svg_info->bounds.y-
                 svg_info->center.y,text);
               text=DestroyString(text);
@@ -1146,7 +1199,17 @@ static void SVGStartElement(void *context,const xmlChar *name,
               draw_info=DestroyDrawInfo(draw_info);
               *svg_info->text='\0';
             }
-          (void) FormatLocaleFile(svg_info->file,"push graphic-context\n");
+          PushGraphicContext(id);
+          break;
+        }
+      break;
+    }
+    case 'U':
+    case 'u':
+    {
+      if (LocaleCompare((char *) name,"use") == 0)
+        {
+          PushGraphicContext(id);
           break;
         }
       break;
@@ -1179,18 +1242,21 @@ static void SVGStartElement(void *context,const xmlChar *name,
         {
           if (LocaleCompare(keyword,"clip-path") == 0)
             {
-              (void) FormatLocaleFile(svg_info->file,"clip-path '%s'\n",value);
+              (void) FormatLocaleFile(svg_info->file,"clip-path \"%s\"\n",
+                value);
               break;
             }
           if (LocaleCompare(keyword,"clip-rule") == 0)
             {
-              (void) FormatLocaleFile(svg_info->file,"clip-rule '%s'\n",value);
+              (void) FormatLocaleFile(svg_info->file,"clip-rule \"%s\"\n",
+                value);
               break;
             }
           if (LocaleCompare(keyword,"clipPathUnits") == 0)
             {
               (void) CloneString(&units,value);
-              (void) FormatLocaleFile(svg_info->file,"clip-units '%s'\n",value);
+              (void) FormatLocaleFile(svg_info->file,"clip-units \"%s\"\n",
+                value);
               break;
             }
           if (LocaleCompare(keyword,"color") == 0)
@@ -1240,43 +1306,45 @@ static void SVGStartElement(void *context,const xmlChar *name,
             {
               if (LocaleCompare(value,"currentColor") == 0)
                 {
-                  (void) FormatLocaleFile(svg_info->file,"fill '%s'\n",color);
+                  (void) FormatLocaleFile(svg_info->file,"fill \"%s\"\n",color);
                   break;
                 }
-              (void) FormatLocaleFile(svg_info->file,"fill '%s'\n",value);
+              (void) FormatLocaleFile(svg_info->file,"fill \"%s\"\n",value);
               break;
             }
           if (LocaleCompare(keyword,"fillcolor") == 0)
             {
-              (void) FormatLocaleFile(svg_info->file,"fill '%s'\n",value);
+              (void) FormatLocaleFile(svg_info->file,"fill \"%s\"\n",value);
               break;
             }
           if (LocaleCompare(keyword,"fill-rule") == 0)
             {
-              (void) FormatLocaleFile(svg_info->file,"fill-rule '%s'\n",value);
+              (void) FormatLocaleFile(svg_info->file,"fill-rule \"%s\"\n",
+                value);
               break;
             }
           if (LocaleCompare(keyword,"fill-opacity") == 0)
             {
-              (void) FormatLocaleFile(svg_info->file,"fill-opacity '%s'\n",
+              (void) FormatLocaleFile(svg_info->file,"fill-opacity \"%s\"\n",
                 value);
               break;
             }
           if (LocaleCompare(keyword,"font-family") == 0)
             {
-              (void) FormatLocaleFile(svg_info->file,"font-family '%s'\n",
+              (void) FormatLocaleFile(svg_info->file,"font-family \"%s\"\n",
                 value);
               break;
             }
           if (LocaleCompare(keyword,"font-stretch") == 0)
             {
-              (void) FormatLocaleFile(svg_info->file,"font-stretch '%s'\n",
+              (void) FormatLocaleFile(svg_info->file,"font-stretch \"%s\"\n",
                 value);
               break;
             }
           if (LocaleCompare(keyword,"font-style") == 0)
             {
-              (void) FormatLocaleFile(svg_info->file,"font-style '%s'\n",value);
+              (void) FormatLocaleFile(svg_info->file,"font-style \"%s\"\n",
+                value);
               break;
             }
           if (LocaleCompare(keyword,"font-size") == 0)
@@ -1304,7 +1372,7 @@ static void SVGStartElement(void *context,const xmlChar *name,
             }
           if (LocaleCompare(keyword,"font-weight") == 0)
             {
-              (void) FormatLocaleFile(svg_info->file,"font-weight '%s'\n",
+              (void) FormatLocaleFile(svg_info->file,"font-weight \"%s\"\n",
                 value);
               break;
             }
@@ -1465,7 +1533,7 @@ static void SVGStartElement(void *context,const xmlChar *name,
           if (LocaleCompare(keyword,"gradientUnits") == 0)
             {
               (void) CloneString(&units,value);
-              (void) FormatLocaleFile(svg_info->file,"gradient-units '%s'\n",
+              (void) FormatLocaleFile(svg_info->file,"gradient-units \"%s\"\n",
                 value);
               break;
             }
@@ -1496,6 +1564,11 @@ static void SVGStartElement(void *context,const xmlChar *name,
                 GetUserSpaceCoordinateValue(svg_info,1,value);
               break;
             }
+          if (LocaleCompare(keyword,"mask") == 0)
+            {
+              (void) FormatLocaleFile(svg_info->file,"mask \"%s\"\n",value);
+              break;
+            }
           if (LocaleCompare(keyword,"minor") == 0)
             {
               svg_info->element.minor=
@@ -1514,7 +1587,7 @@ static void SVGStartElement(void *context,const xmlChar *name,
             }
           if (LocaleCompare(keyword,"opacity") == 0)
             {
-              (void) FormatLocaleFile(svg_info->file,"opacity '%s'\n",value);
+              (void) FormatLocaleFile(svg_info->file,"opacity \"%s\"\n",value);
               break;
             }
           break;
@@ -1592,10 +1665,11 @@ static void SVGStartElement(void *context,const xmlChar *name,
             {
               if (LocaleCompare(value,"currentColor") == 0)
                 {
-                  (void) FormatLocaleFile(svg_info->file,"stroke '%s'\n",color);
+                  (void) FormatLocaleFile(svg_info->file,"stroke \"%s\"\n",
+                    color);
                   break;
                 }
-              (void) FormatLocaleFile(svg_info->file,"stroke '%s'\n",value);
+              (void) FormatLocaleFile(svg_info->file,"stroke \"%s\"\n",value);
               break;
             }
           if (LocaleCompare(keyword,"stroke-antialiasing") == 0)
@@ -1618,25 +1692,25 @@ static void SVGStartElement(void *context,const xmlChar *name,
             }
           if (LocaleCompare(keyword,"stroke-linecap") == 0)
             {
-              (void) FormatLocaleFile(svg_info->file,"stroke-linecap '%s'\n",
+              (void) FormatLocaleFile(svg_info->file,"stroke-linecap \"%s\"\n",
                 value);
               break;
             }
           if (LocaleCompare(keyword,"stroke-linejoin") == 0)
             {
-              (void) FormatLocaleFile(svg_info->file,"stroke-linejoin '%s'\n",
+              (void) FormatLocaleFile(svg_info->file,"stroke-linejoin \"%s\"\n",
                 value);
               break;
             }
           if (LocaleCompare(keyword,"stroke-miterlimit") == 0)
             {
-              (void) FormatLocaleFile(svg_info->file,"stroke-miterlimit '%s'\n",
-                value);
+              (void) FormatLocaleFile(svg_info->file,
+                "stroke-miterlimit \"%s\"\n",value);
               break;
             }
           if (LocaleCompare(keyword,"stroke-opacity") == 0)
             {
-              (void) FormatLocaleFile(svg_info->file,"stroke-opacity '%s'\n",
+              (void) FormatLocaleFile(svg_info->file,"stroke-opacity \"%s\"\n",
                 value);
               break;
             }
@@ -1658,26 +1732,38 @@ static void SVGStartElement(void *context,const xmlChar *name,
                   "    %s: %s",keyword,value);
                 switch (*keyword)
                 {
+                  case 'B':
+                  case 'b':
+                  {
+                    if (LocaleCompare((const char *) name,"background") == 0)
+                      {
+                        if (LocaleCompare((const char *) name,"svg") == 0)
+                          (void) CopyMagickString(background,value,
+                            MagickPathExtent);
+                        break;
+                      }
+                    break;
+                  }
                   case 'C':
                   case 'c':
                   {
                      if (LocaleCompare(keyword,"clip-path") == 0)
                        {
                          (void) FormatLocaleFile(svg_info->file,
-                           "clip-path '%s'\n",value);
+                           "clip-path \"%s\"\n",value);
                          break;
                        }
                     if (LocaleCompare(keyword,"clip-rule") == 0)
                       {
                         (void) FormatLocaleFile(svg_info->file,
-                          "clip-rule '%s'\n",value);
+                          "clip-rule \"%s\"\n",value);
                         break;
                       }
                      if (LocaleCompare(keyword,"clipPathUnits") == 0)
                        {
                          (void) CloneString(&units,value);
                          (void) FormatLocaleFile(svg_info->file,
-                          "clip-units '%s'\n",value);
+                          "clip-units \"%s\"\n",value);
                          break;
                        }
                     if (LocaleCompare(keyword,"color") == 0)
@@ -1695,51 +1781,51 @@ static void SVGStartElement(void *context,const xmlChar *name,
                          if (LocaleCompare(value,"currentColor") == 0)
                            {
                              (void) FormatLocaleFile(svg_info->file,
-                          "fill '%s'\n",color);
+                               "fill \"%s\"\n",color);
                              break;
                            }
                         if (LocaleCompare(value,"#000000ff") == 0)
                           (void) FormatLocaleFile(svg_info->file,
                             "fill '#000000'\n");
                         else
-                          (void) FormatLocaleFile(svg_info->file,"fill '%s'\n",
-                            value);
+                          (void) FormatLocaleFile(svg_info->file,
+                            "fill \"%s\"\n",value);
                         break;
                       }
                     if (LocaleCompare(keyword,"fillcolor") == 0)
                       {
-                        (void) FormatLocaleFile(svg_info->file,"fill '%s'\n",
+                        (void) FormatLocaleFile(svg_info->file,"fill \"%s\"\n",
                           value);
                         break;
                       }
                     if (LocaleCompare(keyword,"fill-rule") == 0)
                       {
                         (void) FormatLocaleFile(svg_info->file,
-                          "fill-rule '%s'\n",value);
+                          "fill-rule \"%s\"\n",value);
                         break;
                       }
                     if (LocaleCompare(keyword,"fill-opacity") == 0)
                       {
                         (void) FormatLocaleFile(svg_info->file,
-                          "fill-opacity '%s'\n",value);
+                          "fill-opacity \"%s\"\n",value);
                         break;
                       }
                     if (LocaleCompare(keyword,"font-family") == 0)
                       {
                         (void) FormatLocaleFile(svg_info->file,
-                          "font-family '%s'\n",value);
+                          "font-family \"%s\"\n",value);
                         break;
                       }
                     if (LocaleCompare(keyword,"font-stretch") == 0)
                       {
                         (void) FormatLocaleFile(svg_info->file,
-                          "font-stretch '%s'\n",value);
+                          "font-stretch \"%s\"\n",value);
                         break;
                       }
                     if (LocaleCompare(keyword,"font-style") == 0)
                       {
                         (void) FormatLocaleFile(svg_info->file,
-                          "font-style '%s'\n",value);
+                          "font-style \"%s\"\n",value);
                         break;
                       }
                     if (LocaleCompare(keyword,"font-size") == 0)
@@ -1753,7 +1839,7 @@ static void SVGStartElement(void *context,const xmlChar *name,
                     if (LocaleCompare(keyword,"font-weight") == 0)
                       {
                         (void) FormatLocaleFile(svg_info->file,
-                          "font-weight '%s'\n",value);
+                          "font-weight \"%s\"\n",value);
                         break;
                       }
                     break;
@@ -1770,7 +1856,7 @@ static void SVGStartElement(void *context,const xmlChar *name,
                     if (LocaleCompare(keyword,"opacity") == 0)
                       {
                         (void) FormatLocaleFile(svg_info->file,
-                          "opacity '%s'\n",value);
+                          "opacity \"%s\"\n",value);
                         break;
                       }
                     break;
@@ -1785,18 +1871,18 @@ static void SVGStartElement(void *context,const xmlChar *name,
                       }
                     if (LocaleCompare(keyword,"stroke") == 0)
                       {
-                         if (LocaleCompare(value,"currentColor") == 0)
-                           {
-                             (void) FormatLocaleFile(svg_info->file,
-                          "stroke '%s'\n",color);
-                             break;
-                           }
+                        if (LocaleCompare(value,"currentColor") == 0)
+                          {
+                            (void) FormatLocaleFile(svg_info->file,
+                              "stroke \"%s\"\n",color);
+                            break;
+                          }
                         if (LocaleCompare(value,"#000000ff") == 0)
                           (void) FormatLocaleFile(svg_info->file,
                             "fill '#000000'\n");
                         else
                           (void) FormatLocaleFile(svg_info->file,
-                            "stroke '%s'\n",value);
+                            "stroke \"%s\"\n",value);
                         break;
                       }
                     if (LocaleCompare(keyword,"stroke-antialiasing") == 0)
@@ -1822,25 +1908,25 @@ static void SVGStartElement(void *context,const xmlChar *name,
                     if (LocaleCompare(keyword,"stroke-linecap") == 0)
                       {
                         (void) FormatLocaleFile(svg_info->file,
-                          "stroke-linecap '%s'\n",value);
+                          "stroke-linecap \"%s\"\n",value);
                         break;
                       }
                     if (LocaleCompare(keyword,"stroke-linejoin") == 0)
                       {
                         (void) FormatLocaleFile(svg_info->file,
-                          "stroke-linejoin '%s'\n",value);
+                          "stroke-linejoin \"%s\"\n",value);
                         break;
                       }
                     if (LocaleCompare(keyword,"stroke-miterlimit") == 0)
                       {
                         (void) FormatLocaleFile(svg_info->file,
-                          "stroke-miterlimit '%s'\n",value);
+                          "stroke-miterlimit \"%s\"\n",value);
                         break;
                       }
                     if (LocaleCompare(keyword,"stroke-opacity") == 0)
                       {
                         (void) FormatLocaleFile(svg_info->file,
-                          "stroke-opacity '%s'\n",value);
+                          "stroke-opacity \"%s\"\n",value);
                         break;
                       }
                     if (LocaleCompare(keyword,"stroke-width") == 0)
@@ -1858,13 +1944,13 @@ static void SVGStartElement(void *context,const xmlChar *name,
                     if (LocaleCompare(keyword,"text-align") == 0)
                       {
                         (void) FormatLocaleFile(svg_info->file,
-                          "text-align '%s'\n",value);
+                          "text-align \"%s\"\n",value);
                         break;
                       }
                     if (LocaleCompare(keyword,"text-anchor") == 0)
                       {
                         (void) FormatLocaleFile(svg_info->file,
-                          "text-anchor '%s'\n",value);
+                          "text-anchor \"%s\"\n",value);
                         break;
                       }
                     if (LocaleCompare(keyword,"text-decoration") == 0)
@@ -1905,13 +1991,13 @@ static void SVGStartElement(void *context,const xmlChar *name,
         {
           if (LocaleCompare(keyword,"text-align") == 0)
             {
-              (void) FormatLocaleFile(svg_info->file,"text-align '%s'\n",
+              (void) FormatLocaleFile(svg_info->file,"text-align \"%s\"\n",
                 value);
               break;
             }
           if (LocaleCompare(keyword,"text-anchor") == 0)
             {
-              (void) FormatLocaleFile(svg_info->file,"text-anchor '%s'\n",
+              (void) FormatLocaleFile(svg_info->file,"text-anchor \"%s\"\n",
                 value);
               break;
             }
@@ -2227,6 +2313,15 @@ static void SVGStartElement(void *context,const xmlChar *name,
             0.0;
           (void) FormatLocaleFile(svg_info->file,"affine %g 0 0 %g %g %g\n",
             sx,sy,tx,ty);
+          if ((svg_info->svgDepth == 1) && (*background != '\0'))
+            {
+              PushGraphicContext(id);
+              (void) FormatLocaleFile(svg_info->file,"fill %s\n",background);
+              (void) FormatLocaleFile(svg_info->file,
+                "rectangle 0,0 %g,%g\n",svg_info->view_box.width,
+                svg_info->view_box.height);
+              (void) FormatLocaleFile(svg_info->file,"pop graphic-context\n");
+            }
         }
     }
   (void) LogMagickEvent(CoderEvent,GetMagickModule(),"  )");
@@ -2320,6 +2415,16 @@ static void SVGEndElement(void *context,const xmlChar *name)
         }
       break;
     }
+    case 'F':
+    case 'f':
+    {
+      if (LocaleCompare((const char *) name,"foreignObject") == 0)
+        {
+          (void) FormatLocaleFile(svg_info->file,"pop graphic-context\n");
+          break;
+        }
+      break;
+    }
     case 'G':
     case 'g':
     {
@@ -2336,7 +2441,7 @@ static void SVGEndElement(void *context,const xmlChar *name)
       if (LocaleCompare((const char *) name,"image") == 0)
         {
           (void) FormatLocaleFile(svg_info->file,
-            "image Over %g,%g %g,%g '%s'\n",svg_info->bounds.x,
+            "image Over %g,%g %g,%g \"%s\"\n",svg_info->bounds.x,
             svg_info->bounds.y,svg_info->bounds.width,svg_info->bounds.height,
             svg_info->url);
           (void) FormatLocaleFile(svg_info->file,"pop graphic-context\n");
@@ -2362,6 +2467,16 @@ static void SVGEndElement(void *context,const xmlChar *name)
         }
       break;
     }
+    case 'M':
+    case 'm':
+    {
+      if (LocaleCompare((const char *) name,"mask") == 0)
+        {
+          (void) FormatLocaleFile(svg_info->file,"pop mask\n");
+          break;
+        }
+      break;
+    }
     case 'P':
     case 'p':
     {
@@ -2372,7 +2487,7 @@ static void SVGEndElement(void *context,const xmlChar *name)
         }
       if (LocaleCompare((const char *) name,"path") == 0)
         {
-          (void) FormatLocaleFile(svg_info->file,"path '%s'\n",
+          (void) FormatLocaleFile(svg_info->file,"path \"%s\"\n",
             svg_info->vertices);
           (void) FormatLocaleFile(svg_info->file,"pop graphic-context\n");
           break;
@@ -2433,13 +2548,19 @@ static void SVGEndElement(void *context,const xmlChar *name)
     {
       if (LocaleCompare((const char *) name,"stop") == 0)
         {
-          (void) FormatLocaleFile(svg_info->file,"stop-color '%s' %s\n",
+          (void) FormatLocaleFile(svg_info->file,"stop-color \"%s\" %s\n",
             svg_info->stop_color,svg_info->offset);
+          break;
+        }
+      if (LocaleCompare((const char *) name,"symbol") == 0)
+        {
+          (void) FormatLocaleFile(svg_info->file,"pop symbol\n");
           break;
         }
       if (LocaleCompare((const char *) name,"svg") == 0)
         {
           (void) FormatLocaleFile(svg_info->file,"pop graphic-context\n");
+          svg_info->svgDepth--;
           break;
         }
       break;
@@ -2455,7 +2576,7 @@ static void SVGEndElement(void *context,const xmlChar *name)
                 *text;
 
               text=EscapeString(svg_info->text,'\'');
-              (void) FormatLocaleFile(svg_info->file,"text %g,%g '%s'\n",
+              (void) FormatLocaleFile(svg_info->file,"text %g,%g \"%s\"\n",
                 svg_info->bounds.x,svg_info->bounds.y,text);
               text=DestroyString(text);
               *svg_info->text='\0';
@@ -2477,7 +2598,7 @@ static void SVGEndElement(void *context,const xmlChar *name)
                 *text;
 
               text=EscapeString(svg_info->text,'\'');
-              (void) FormatLocaleFile(svg_info->file,"text %g,%g '%s'\n",
+              (void) FormatLocaleFile(svg_info->file,"text %g,%g \"%s\"\n",
                 svg_info->bounds.x,svg_info->bounds.y,text);
               text=DestroyString(text);
               draw_info=CloneDrawInfo(svg_info->image_info,(DrawInfo *) NULL);
@@ -2503,12 +2624,27 @@ static void SVGEndElement(void *context,const xmlChar *name)
         }
       break;
     }
+    case 'U':
+    case 'u':
+    {
+      if (LocaleCompare((char *) name,"use") == 0)
+        {
+          if ((svg_info->bounds.x != 0.0) || (svg_info->bounds.y != 0.0))
+            (void) FormatLocaleFile(svg_info->file,"translate %g,%g\n",
+              svg_info->bounds.x,svg_info->bounds.y);
+          (void) FormatLocaleFile(svg_info->file,"use \"url(%s)\"\n",
+            svg_info->url);
+          (void) FormatLocaleFile(svg_info->file,"pop graphic-context\n");
+          break;
+        }
+      break;
+    }
     default:
       break;
   }
   *svg_info->text='\0';
-  (void) ResetMagickMemory(&svg_info->element,0,sizeof(svg_info->element));
-  (void) ResetMagickMemory(&svg_info->segment,0,sizeof(svg_info->segment));
+  (void) memset(&svg_info->element,0,sizeof(svg_info->element));
+  (void) memset(&svg_info->segment,0,sizeof(svg_info->segment));
   svg_info->n--;
 }
 
@@ -2784,7 +2920,7 @@ static void SVGExternalSubset(void *context,const xmlChar *name,
   Static declarations.
 */
 static char
-  SVGDensityGeometry[] = "90.0x90.0";
+  SVGDensityGeometry[] = "96.0x96.0";
 
 
 static Image *ReadSVGImage(const ImageInfo *image_info,ExceptionInfo *exception)
@@ -2796,7 +2932,8 @@ static Image *ReadSVGImage(const ImageInfo *image_info,ExceptionInfo *exception)
     *file;
 
   Image
-    *image;
+    *image,
+    *next;
 
   int
     status,
@@ -2834,7 +2971,8 @@ static Image *ReadSVGImage(const ImageInfo *image_info,ExceptionInfo *exception)
       image=DestroyImageList(image);
       return((Image *) NULL);
     }
-  if ((image->resolution.x == 0.0) || (image->resolution.y == 0.0))
+  if ((fabs(image->resolution.x) < MagickEpsilon) ||
+      (fabs(image->resolution.y) < MagickEpsilon))
     {
       GeometryInfo
         geometry_info;
@@ -2872,7 +3010,7 @@ static Image *ReadSVGImage(const ImageInfo *image_info,ExceptionInfo *exception)
             attributes;
 
           /*
-            Our best hope of compliance with the SVG standard.
+            Our best hope for compliance with the SVG standard.
           */
           status=AcquireUniqueSymbolicLink(image->filename,input_filename);
           (void) AcquireUniqueFilename(output_filename);
@@ -2912,6 +3050,14 @@ static Image *ReadSVGImage(const ImageInfo *image_info,ExceptionInfo *exception)
               (void) RelinquishUniqueFileResource(output_filename);
               if (svg_image != (Image *) NULL)
                 {
+                  for (next=GetFirstImageInList(svg_image); next != (Image *) NULL; )
+                  {
+                    (void) CopyMagickString(next->filename,image->filename,
+                      MaxTextExtent);
+                    (void) CopyMagickString(next->magick,image->magick,
+                      MaxTextExtent);
+                    next=GetNextImageInList(next);
+                  }
                   image=DestroyImage(image);
                   return(svg_image);
                 }
@@ -2972,7 +3118,8 @@ static Image *ReadSVGImage(const ImageInfo *image_info,ExceptionInfo *exception)
         if (svg_handle == (RsvgHandle *) NULL)
           ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
         rsvg_handle_set_base_uri(svg_handle,image_info->filename);
-        if ((image->resolution.x > 0.0) && (image->resolution.y > 0.0))
+        if ((fabs(image->resolution.x) > MagickEpsilon) &&
+            (fabs(image->resolution.y) > MagickEpsilon))
           rsvg_handle_set_dpi_x_y(svg_handle,image->resolution.x,
             image->resolution.y);
         while ((n=ReadBlob(image,MagickPathExtent-1,message)) != 0)
@@ -2991,45 +3138,46 @@ static Image *ReadSVGImage(const ImageInfo *image_info,ExceptionInfo *exception)
         apply_density=MagickTrue;
         rsvg_handle_get_dimensions(svg_handle,&dimension_info);
         if ((image->resolution.x > 0.0) && (image->resolution.y > 0.0))
-        {
-          RsvgDimensionData
-            dpi_dimension_info;
+          {
+            RsvgDimensionData
+              dpi_dimension_info;
 
-          /*
-            We should not apply the density when the internal 'factor' is 'i'.
-            This can be checked by using the trick below.
-          */
-          rsvg_handle_set_dpi_x_y(svg_handle,image->resolution.x*256,
-            image->resolution.y*256);
-          rsvg_handle_get_dimensions(svg_handle,&dpi_dimension_info);
-          if ((dpi_dimension_info.width != dimension_info.width) ||
-              (dpi_dimension_info.height != dimension_info.height))
-            apply_density=MagickFalse;
-          rsvg_handle_set_dpi_x_y(svg_handle,image->resolution.x,
-            image->resolution.y);
-        }
+            /*
+              We should not apply the density when the internal 'factor' is 'i'.
+              This can be checked by using the trick below.
+            */
+            rsvg_handle_set_dpi_x_y(svg_handle,image->resolution.x*256,
+              image->resolution.y*256);
+            rsvg_handle_get_dimensions(svg_handle,&dpi_dimension_info);
+            if ((dpi_dimension_info.width != dimension_info.width) ||
+                (dpi_dimension_info.height != dimension_info.height))
+              apply_density=MagickFalse;
+            rsvg_handle_set_dpi_x_y(svg_handle,image->resolution.x,
+              image->resolution.y);
+          }
         if (image_info->size != (char *) NULL)
           {
             (void) GetGeometry(image_info->size,(ssize_t *) NULL,
               (ssize_t *) NULL,&image->columns,&image->rows);
             if ((image->columns != 0) || (image->rows != 0))
               {
-                image->resolution.x=90.0*image->columns/dimension_info.width;
-                image->resolution.y=90.0*image->rows/dimension_info.height;
-                if (image->resolution.x == 0)
+                image->resolution.x=96.0*image->columns/dimension_info.width;
+                image->resolution.y=96.0*image->rows/dimension_info.height;
+                if (fabs(image->resolution.x) < MagickEpsilon)
                   image->resolution.x=image->resolution.y;
-                else if (image->resolution.y == 0)
-                  image->resolution.y=image->resolution.x;
                 else
-                  image->resolution.x=image->resolution.y=MagickMin(
-                    image->resolution.x,image->resolution.y);
+                  if (fabs(image->resolution.y) < MagickEpsilon)
+                    image->resolution.y=image->resolution.x;
+                  else
+                    image->resolution.x=image->resolution.y=MagickMin(
+                      image->resolution.x,image->resolution.y);
                 apply_density=MagickTrue;
               }
           }
         if (apply_density != MagickFalse)
           {
-            image->columns=image->resolution.x*dimension_info.width/90.0;
-            image->rows=image->resolution.y*dimension_info.height/90.0;
+            image->columns=image->resolution.x*dimension_info.width/96.0;
+            image->rows=image->resolution.y*dimension_info.height/96.0;
           }
         else
           {
@@ -3044,8 +3192,6 @@ static Image *ReadSVGImage(const ImageInfo *image_info,ExceptionInfo *exception)
         image->rows=gdk_pixbuf_get_height(pixel_buffer);
 #endif
         image->alpha_trait=BlendPixelTrait;
-        SetImageProperty(image,"svg:base-uri",
-          rsvg_handle_get_base_uri(svg_handle),exception);
         status=SetImageExtent(image,image->columns,image->rows,exception);
         if (status == MagickFalse)
           {
@@ -3081,8 +3227,11 @@ static Image *ReadSVGImage(const ImageInfo *image_info,ExceptionInfo *exception)
             cairo_surface=cairo_image_surface_create_for_data(pixels,
               CAIRO_FORMAT_ARGB32,(int) image->columns,(int) image->rows,(int)
               stride);
-            if (cairo_surface == (cairo_surface_t *) NULL)
+            if ((cairo_surface == (cairo_surface_t *) NULL) ||
+                (cairo_surface_status(cairo_surface) != CAIRO_STATUS_SUCCESS))
               {
+                if (cairo_surface != (cairo_surface_t *) NULL)
+                  cairo_surface_destroy(cairo_surface);
                 pixel_info=RelinquishVirtualMemory(pixel_info);
                 g_object_unref(svg_handle);
                 ThrowReaderException(ResourceLimitError,
@@ -3093,8 +3242,8 @@ static Image *ReadSVGImage(const ImageInfo *image_info,ExceptionInfo *exception)
             cairo_paint(cairo_image);
             cairo_set_operator(cairo_image,CAIRO_OPERATOR_OVER);
             if (apply_density != MagickFalse)
-              cairo_scale(cairo_image,image->resolution.x/90.0,
-                image->resolution.y/90.0);
+              cairo_scale(cairo_image,image->resolution.x/96.0,
+                image->resolution.y/96.0);
             rsvg_handle_render_cairo(svg_handle,cairo_image);
             cairo_destroy(cairo_image);
             cairo_surface_destroy(cairo_surface);
@@ -3155,6 +3304,12 @@ static Image *ReadSVGImage(const ImageInfo *image_info,ExceptionInfo *exception)
         g_object_unref(G_OBJECT(pixel_buffer));
 #endif
         (void) CloseBlob(image);
+        for (next=GetFirstImageInList(image); next != (Image *) NULL; )
+        {
+          (void) CopyMagickString(next->filename,image->filename,MaxTextExtent);
+          (void) CopyMagickString(next->magick,image->magick,MaxTextExtent);
+          next=GetNextImageInList(next);
+        }
         return(GetFirstImageInList(image));
 #endif
       }
@@ -3189,12 +3344,13 @@ static Image *ReadSVGImage(const ImageInfo *image_info,ExceptionInfo *exception)
   svg_info->image_info=image_info;
   svg_info->bounds.width=image->columns;
   svg_info->bounds.height=image->rows;
+  svg_info->svgDepth=0;
   if (image_info->size != (char *) NULL)
     (void) CloneString(&svg_info->size,image_info->size);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(CoderEvent,GetMagickModule(),"begin SAX");
   (void) xmlSubstituteEntitiesDefault(1);
-  (void) ResetMagickMemory(&sax_modules,0,sizeof(sax_modules));
+  (void) memset(&sax_modules,0,sizeof(sax_modules));
   sax_modules.internalSubset=SVGInternalSubset;
   sax_modules.isStandalone=SVGIsStandalone;
   sax_modules.hasInternalSubset=SVGHasInternalSubset;
@@ -3248,6 +3404,8 @@ static Image *ReadSVGImage(const ImageInfo *image_info,ExceptionInfo *exception)
   image->rows=svg_info->height;
   if (exception->severity >= ErrorException)
     {
+      svg_info=DestroySVGInfo(svg_info);
+      (void) RelinquishUniqueFileResource(filename);
       image=DestroyImage(image);
       return((Image *) NULL);
     }
@@ -3284,13 +3442,18 @@ static Image *ReadSVGImage(const ImageInfo *image_info,ExceptionInfo *exception)
         (void) SetImageProperty(image,"svg:comment",svg_info->comment,
           exception);
     }
+  for (next=GetFirstImageInList(image); next != (Image *) NULL; )
+  {
+    (void) CopyMagickString(next->filename,image->filename,MaxTextExtent);
+    (void) CopyMagickString(next->magick,image->magick,MaxTextExtent);
+    next=GetNextImageInList(next);
+  }
   svg_info=DestroySVGInfo(svg_info);
   (void) RelinquishUniqueFileResource(filename);
   return(GetFirstImageInList(image));
 }
 #endif
-
-
+
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %                                                                             %
@@ -3343,6 +3506,9 @@ ModuleExport size_t RegisterSVGImage(void)
 #endif
   entry->encoder=(EncodeImageHandler *) WriteSVGImage;
   entry->flags^=CoderBlobSupportFlag;
+#if defined(MAGICKCORE_RSVG_DELEGATE)
+  entry->flags^=CoderDecoderThreadSupportFlag;
+#endif
   entry->mime_type=ConstantString("image/svg+xml");
   if (*version != '\0')
     entry->version=ConstantString(version);
@@ -3354,6 +3520,9 @@ ModuleExport size_t RegisterSVGImage(void)
 #endif
   entry->encoder=(EncodeImageHandler *) WriteSVGImage;
   entry->flags^=CoderBlobSupportFlag;
+#if defined(MAGICKCORE_RSVG_DELEGATE)
+  entry->flags^=CoderDecoderThreadSupportFlag;
+#endif
   entry->mime_type=ConstantString("image/svg+xml");
   if (*version != '\0')
     entry->version=ConstantString(version);
@@ -3366,12 +3535,14 @@ ModuleExport size_t RegisterSVGImage(void)
 #endif
   entry->encoder=(EncodeImageHandler *) WriteSVGImage;
   entry->flags^=CoderBlobSupportFlag;
+#if defined(MAGICKCORE_RSVG_DELEGATE)
+  entry->flags^=CoderDecoderThreadSupportFlag;
+#endif
   entry->magick=(IsImageFormatHandler *) IsSVG;
   (void) RegisterMagickInfo(entry);
   return(MagickImageCoderSignature);
 }
-
-
+
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %                                                                             %
@@ -3400,8 +3571,7 @@ ModuleExport void UnregisterSVGImage(void)
   xmlCleanupParser();
 #endif
 }
-
-
+
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %                                                                             %
@@ -3521,7 +3691,7 @@ static MagickBooleanType TraceSVGImage(Image *image,ExceptionInfo *exception)
     ImageType
       type;
 
-    register const PixelPacket
+    register const Quantum
       *p;
 
     register ssize_t
@@ -3549,7 +3719,7 @@ static MagickBooleanType TraceSVGImage(Image *image,ExceptionInfo *exception)
     for (y=0; y < (ssize_t) image->rows; y++)
     {
       p=GetVirtualPixels(image,0,y,image->columns,1,exception);
-      if (p == (const PixelPacket *) NULL)
+      if (p == (const Quantum *) NULL)
         break;
       for (x=0; x < (ssize_t) image->columns; x++)
       {
@@ -3633,7 +3803,7 @@ static MagickBooleanType TraceSVGImage(Image *image,ExceptionInfo *exception)
     blob=(unsigned char *) RelinquishMagickMemory(blob);
     (void) FormatLocaleString(message,MagickPathExtent,
       "  <image id=\"image%.20g\" width=\"%.20g\" height=\"%.20g\" "
-      "x=\"%.20g\" y=\"%.20g\"\n    xlink:href=\"data:image/png;base64,",
+      "x=\"%.20g\" y=\"%.20g\"\n    href=\"data:image/png;base64,",
       (double) image->scene,(double) image->columns,(double) image->rows,
       (double) image->page.x,(double) image->page.y);
     (void) WriteBlobString(image,message);
@@ -3869,8 +4039,8 @@ static MagickBooleanType WriteSVGImage(const ImageInfo *image_info,Image *image,
         if (LocaleCompare("clip-rule",keyword) == 0)
           {
             GetNextToken(q,&q,extent,token);
-            (void) FormatLocaleString(message,MagickPathExtent,
-              "clip-rule:%s;",token);
+            (void) FormatLocaleString(message,MagickPathExtent,"clip-rule:%s;",
+              token);
             (void) WriteBlobString(image,message);
             break;
           }
@@ -4110,8 +4280,14 @@ static MagickBooleanType WriteSVGImage(const ImageInfo *image_info,Image *image,
                 (void) WriteBlobString(image,"</pattern>\n");
                 break;
               }
-            if (LocaleCompare("defs",token) == 0)
-            (void) WriteBlobString(image,"</g>\n");
+            if (LocaleCompare("symbol",token) == 0)
+              {
+                (void) WriteBlobString(image,"</symbol>\n");
+                break;
+              }
+            if ((LocaleCompare("defs",token) == 0) ||
+                (LocaleCompare("symbol",token) == 0))
+              (void) WriteBlobString(image,"</g>\n");
             break;
           }
         if (LocaleCompare("push",keyword) == 0)
@@ -4212,6 +4388,11 @@ static MagickBooleanType WriteSVGImage(const ImageInfo *image_info,Image *image,
                   "height=\"%g\">\n",name,svg_info.bounds.x,svg_info.bounds.y,
                   svg_info.bounds.width,svg_info.bounds.height);
                 (void) WriteBlobString(image,message);
+                break;
+              }
+            if (LocaleCompare("symbol",token) == 0)
+              {
+                (void) WriteBlobString(image,"<symbol>\n");
                 break;
               }
             break;
@@ -4742,7 +4923,7 @@ static MagickBooleanType WriteSVGImage(const ImageInfo *image_info,Image *image,
         GetNextToken(q,&q,extent,token);
         (void) FormatLocaleString(message,MagickPathExtent,
           "  <image x=\"%g\" y=\"%g\" width=\"%g\" height=\"%g\" "
-          "xlink:href=\"%s\"/>\n",primitive_info[j].point.x,
+          "href=\"%s\"/>\n",primitive_info[j].point.x,
           primitive_info[j].point.y,primitive_info[j+1].point.x,
           primitive_info[j+1].point.y,token);
         (void) WriteBlobString(image,message);

@@ -18,13 +18,13 @@
 %                                 June 2007                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://www.imagemagick.org/script/license.php                           %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -798,6 +798,7 @@ static double *GenerateCoefficients(const Image *image,
       /* 8x8 least-squares matrix (zeroed) */
       matrix = AcquireMagickMatrix(8UL,8UL);
       if (matrix == (double **) NULL) {
+        coeff=(double *) RelinquishMagickMemory(coeff);
         (void) ThrowMagickException(exception,GetMagickModule(),
                   ResourceLimitError,"MemoryAllocationFailed",
                   "%s", "DistortCoefficients");
@@ -855,6 +856,7 @@ static double *GenerateCoefficients(const Image *image,
         Arguments: Perspective Coefficents (forward mapping)
       */
       if (number_arguments != 8) {
+        coeff = (double *) RelinquishMagickMemory(coeff);
         (void) ThrowMagickException(exception,GetMagickModule(),OptionError,
               "InvalidArgument", "%s : 'Needs 8 coefficient values'",
               CommandOptionToMnemonic(MagickDistortOptions, *method));
@@ -1488,7 +1490,7 @@ MagickExport Image *DistortResizeImage(const Image *image,
     return((Image *) NULL);
   /* Do not short-circuit this resize if final image size is unchanged */
 
-  (void) ResetMagickMemory(distort_args,0,12*sizeof(double));
+  (void) memset(distort_args,0,12*sizeof(double));
   distort_args[4]=(double) image->columns;
   distort_args[6]=(double) columns;
   distort_args[9]=(double) image->rows;
@@ -1687,6 +1689,9 @@ MagickExport Image *DistortImage(const Image *image, DistortMethod method,
 
   MagickBooleanType
     viewport_given;
+
+  PixelInfo
+    invalid;  /* the color to assign when distort result is invalid */
 
   assert(image != (Image *) NULL);
   assert(image->signature == MagickCoreSignature);
@@ -2272,10 +2277,14 @@ MagickExport Image *DistortImage(const Image *image, DistortMethod method,
   distort_image=CloneImage(image,geometry.width,geometry.height,MagickTrue,
     exception);
   if (distort_image == (Image *) NULL)
-    return((Image *) NULL);
+    {
+      coeff=(double *) RelinquishMagickMemory(coeff);
+      return((Image *) NULL);
+    }
   /* if image is ColorMapped - change it to DirectClass */
   if (SetImageStorageClass(distort_image,DirectClass,exception) == MagickFalse)
     {
+      coeff=(double *) RelinquishMagickMemory(coeff);
       distort_image=DestroyImage(distort_image);
       return((Image *) NULL);
     }
@@ -2286,6 +2295,8 @@ MagickExport Image *DistortImage(const Image *image, DistortMethod method,
     distort_image->alpha_trait=BlendPixelTrait;
   distort_image->page.x=geometry.x;
   distort_image->page.y=geometry.y;
+  ConformPixelInfo(distort_image,&distort_image->matte_color,&invalid,
+    exception);
 
   { /* ----- MAIN CODE -----
        Sample the source image to each pixel in the distort image.
@@ -2315,8 +2326,8 @@ MagickExport Image *DistortImage(const Image *image, DistortMethod method,
       UndefinedVirtualPixelMethod,MagickFalse,exception);
     distort_view=AcquireAuthenticCacheView(distort_image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-    #pragma omp parallel for schedule(static,4) shared(progress,status) \
-      magick_threads(image,distort_image,distort_image->rows,1)
+    #pragma omp parallel for schedule(static) shared(progress,status) \
+      magick_number_threads(image,distort_image,distort_image->rows,1)
 #endif
     for (j=0; j < (ssize_t) distort_image->rows; j++)
     {
@@ -2330,8 +2341,7 @@ MagickExport Image *DistortImage(const Image *image, DistortMethod method,
         sync;
 
       PixelInfo
-        pixel,    /* pixel color to assign to distorted image */
-        invalid;  /* the color to assign when distort result is invalid */
+        pixel;    /* pixel color to assign to distorted image */
 
       PointInfo
         d,
@@ -2367,14 +2377,12 @@ MagickExport Image *DistortImage(const Image *image, DistortMethod method,
       }
 
       /* Initialize default pixel validity
-      *    negative:         pixel is invalid  output 'alpha_color'
+      *    negative:         pixel is invalid  output 'matte_color'
       *    0.0 to 1.0:       antialiased, mix with resample output
       *    1.0 or greater:   use resampled output.
       */
       validity = 1.0;
 
-      ConformPixelInfo(distort_image,&distort_image->alpha_color,&invalid,
-        exception);
       for (i=0; i < (ssize_t) distort_image->columns; i++)
       {
         /* map pixel coordinate to distortion space coordinate */
@@ -2755,7 +2763,7 @@ if ( d.x == 0.5 && d.y == 0.5 ) {
     distort_image->page.x = 0;
     distort_image->page.y = 0;
   }
-  coeff = (double *) RelinquishMagickMemory(coeff);
+  coeff=(double *) RelinquishMagickMemory(coeff);
   return(distort_image);
 }
 
@@ -2818,7 +2826,7 @@ MagickExport Image *RotateImage(const Image *image,const double degrees,
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickCoreSignature);
-  angle=degrees;
+  angle=fmod(degrees,360.0);
   while (angle < -45.0)
     angle+=360.0;
   for (rotations=0; angle > 45.0; rotations++)
@@ -3037,8 +3045,8 @@ MagickExport Image *SparseColorImage(const Image *image,
     progress=0;
     sparse_view=AcquireAuthenticCacheView(sparse_image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-    #pragma omp parallel for schedule(static,4) shared(progress,status) \
-      magick_threads(image,sparse_image,sparse_image->rows,1)
+    #pragma omp parallel for schedule(static) shared(progress,status) \
+      magick_number_threads(image,sparse_image,sparse_image->rows,1)
 #endif
     for (j=0; j < (ssize_t) sparse_image->rows; j++)
     {
@@ -3239,17 +3247,17 @@ MagickExport Image *SparseColorImage(const Image *image,
         }
         /* set the color directly back into the source image */
         if ((GetPixelRedTraits(image) & UpdatePixelTrait) != 0)
-          pixel.red=ClampPixel(QuantumRange*pixel.red);
+          pixel.red=(MagickRealType) ClampPixel(QuantumRange*pixel.red);
         if ((GetPixelGreenTraits(image) & UpdatePixelTrait) != 0)
-          pixel.green=ClampPixel(QuantumRange*pixel.green);
+          pixel.green=(MagickRealType) ClampPixel(QuantumRange*pixel.green);
         if ((GetPixelBlueTraits(image) & UpdatePixelTrait) != 0)
-          pixel.blue=ClampPixel(QuantumRange*pixel.blue);
+          pixel.blue=(MagickRealType) ClampPixel(QuantumRange*pixel.blue);
         if (((GetPixelBlackTraits(image) & UpdatePixelTrait) != 0) &&
             (image->colorspace == CMYKColorspace))
-          pixel.black=ClampPixel(QuantumRange*pixel.black);
+          pixel.black=(MagickRealType) ClampPixel(QuantumRange*pixel.black);
         if (((GetPixelAlphaTraits(image) & UpdatePixelTrait) != 0) &&
             (image->alpha_trait != UndefinedPixelTrait))
-          pixel.alpha=ClampPixel(QuantumRange*pixel.alpha);
+          pixel.alpha=(MagickRealType) ClampPixel(QuantumRange*pixel.alpha);
         SetPixelViaPixelInfo(sparse_image,&pixel,q);
         q+=GetPixelChannels(sparse_image);
       }

@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://www.imagemagick.org/script/license.php                           %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -312,6 +312,7 @@ static Image *ReadSGIImage(const ImageInfo *image_info,ExceptionInfo *exception)
   /*
     Read SGI raster header.
   */
+  (void) memset(&iris_info,0,sizeof(iris_info));
   iris_info.magic=ReadBlobMSBShort(image);
   do
   {
@@ -332,6 +333,8 @@ static Image *ReadSGIImage(const ImageInfo *image_info,ExceptionInfo *exception)
     if ((iris_info.bytes_per_pixel == 0) || (iris_info.bytes_per_pixel > 2))
       ThrowReaderException(CorruptImageError,"ImproperImageHeader");
     iris_info.dimension=ReadBlobMSBShort(image);
+    if ((iris_info.dimension == 0) || (iris_info.dimension > 3))
+      ThrowReaderException(CorruptImageError,"ImproperImageHeader");
     iris_info.columns=ReadBlobMSBShort(image);
     iris_info.rows=ReadBlobMSBShort(image);
     iris_info.depth=ReadBlobMSBShort(image);
@@ -355,6 +358,8 @@ static Image *ReadSGIImage(const ImageInfo *image_info,ExceptionInfo *exception)
       ThrowReaderException(CorruptImageError,"ImproperImageHeader");
     image->columns=iris_info.columns;
     image->rows=iris_info.rows;
+    image->alpha_trait=iris_info.depth == 4 ? BlendPixelTrait :
+      UndefinedPixelTrait;
     image->depth=(size_t) MagickMin(iris_info.depth,MAGICKCORE_QUANTUM_DEPTH);
     if (iris_info.pixel_format == 0)
       image->depth=(size_t) MagickMin((size_t) 8*iris_info.bytes_per_pixel,
@@ -368,6 +373,8 @@ static Image *ReadSGIImage(const ImageInfo *image_info,ExceptionInfo *exception)
       if (image->scene >= (image_info->scene+image_info->number_scenes-1))
         break;
     status=SetImageExtent(image,image->columns,image->rows,exception);
+    if (status != MagickFalse)
+      status=ResetImagePixels(image,exception);
     if (status == MagickFalse)
       return(DestroyImageList(image));
     /*
@@ -383,6 +390,8 @@ static Image *ReadSGIImage(const ImageInfo *image_info,ExceptionInfo *exception)
     if (pixel_info == (MemoryInfo *) NULL)
       ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
     pixels=(unsigned char *) GetVirtualMemoryBlob(pixel_info);
+    (void) memset(pixels,0,iris_info.columns*iris_info.rows*4*
+      bytes_per_pixel*sizeof(*pixels));
     if ((int) iris_info.storage != 0x01)
       {
         unsigned char
@@ -394,14 +403,17 @@ static Image *ReadSGIImage(const ImageInfo *image_info,ExceptionInfo *exception)
         scanline=(unsigned char *) AcquireQuantumMemory(iris_info.columns,
           bytes_per_pixel*sizeof(*scanline));
         if (scanline == (unsigned char *) NULL)
-          ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
+          {
+            pixel_info=RelinquishVirtualMemory(pixel_info);
+            ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
+          }
         for (z=0; z < (ssize_t) iris_info.depth; z++)
         {
           p=pixels+bytes_per_pixel*z;
           for (y=0; y < (ssize_t) iris_info.rows; y++)
           {
             count=ReadBlob(image,bytes_per_pixel*iris_info.columns,scanline);
-            if (EOFBlob(image) != MagickFalse)
+            if (count != (bytes_per_pixel*iris_info.columns))
               break;
             if (bytes_per_pixel == 2)
               for (x=0; x < (ssize_t) iris_info.columns; x++)
@@ -417,6 +429,8 @@ static Image *ReadSGIImage(const ImageInfo *image_info,ExceptionInfo *exception)
                 p+=4;
               }
           }
+          if (y < (ssize_t) iris_info.rows)
+            break;
         }
         scanline=(unsigned char *) RelinquishMagickMemory(scanline);
       }
@@ -447,16 +461,14 @@ static Image *ReadSGIImage(const ImageInfo *image_info,ExceptionInfo *exception)
           iris_info.depth*sizeof(*runlength));
         packet_info=AcquireVirtualMemory((size_t) iris_info.columns+10UL,4UL*
           sizeof(*packets));
-        if ((offsets == (ssize_t *) NULL) ||
-            (runlength == (size_t *) NULL) ||
+        if ((offsets == (ssize_t *) NULL) || (runlength == (size_t *) NULL) ||
             (packet_info == (MemoryInfo *) NULL))
           {
-            if (offsets == (ssize_t *) NULL)
-              offsets=(ssize_t *) RelinquishMagickMemory(offsets);
-            if (runlength == (size_t *) NULL)
-              runlength=(size_t *) RelinquishMagickMemory(runlength);
-            if (packet_info == (MemoryInfo *) NULL)
+            offsets=(ssize_t *) RelinquishMagickMemory(offsets);
+            runlength=(size_t *) RelinquishMagickMemory(runlength);
+            if (packet_info != (MemoryInfo *) NULL)
               packet_info=RelinquishVirtualMemory(packet_info);
+            pixel_info=RelinquishVirtualMemory(pixel_info);
             ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
           }
         packets=(unsigned char *) GetVirtualMemoryBlob(packet_info);
@@ -466,7 +478,13 @@ static Image *ReadSGIImage(const ImageInfo *image_info,ExceptionInfo *exception)
         {
           runlength[i]=ReadBlobMSBLong(image);
           if (runlength[i] > (4*(size_t) iris_info.columns+10))
-            ThrowReaderException(CorruptImageError,"ImproperImageHeader");
+            {
+              packet_info=RelinquishVirtualMemory(packet_info);
+              runlength=(size_t *) RelinquishMagickMemory(runlength);
+              offsets=(ssize_t *) RelinquishMagickMemory(offsets);
+              pixel_info=RelinquishVirtualMemory(pixel_info);
+              ThrowReaderException(CorruptImageError,"ImproperImageHeader");
+            }
         }
         /*
           Check data order.
@@ -496,16 +514,25 @@ static Image *ReadSGIImage(const ImageInfo *image_info,ExceptionInfo *exception)
                   }
                 count=ReadBlob(image,(size_t) runlength[y+z*iris_info.rows],
                   packets);
-                if (EOFBlob(image) != MagickFalse)
+                if (count != runlength[y+z*iris_info.rows])
                   break;
                 offset+=(ssize_t) runlength[y+z*iris_info.rows];
                 status=SGIDecode(bytes_per_pixel,(ssize_t)
                   (runlength[y+z*iris_info.rows]/bytes_per_pixel),packets,
                   (ssize_t) iris_info.columns,p+bytes_per_pixel*z);
                 if (status == MagickFalse)
-                  ThrowReaderException(CorruptImageError,"ImproperImageHeader");
+                  {
+                    packet_info=RelinquishVirtualMemory(packet_info);
+                    runlength=(size_t *) RelinquishMagickMemory(runlength);
+                    offsets=(ssize_t *) RelinquishMagickMemory(offsets);
+                    pixel_info=RelinquishVirtualMemory(pixel_info);
+                    ThrowReaderException(CorruptImageError,
+                      "ImproperImageHeader");
+                  }
                 p+=(iris_info.columns*4*bytes_per_pixel);
               }
+              if (y < (ssize_t) iris_info.rows)
+                break;
             }
           }
         else
@@ -527,15 +554,24 @@ static Image *ReadSGIImage(const ImageInfo *image_info,ExceptionInfo *exception)
                   }
                 count=ReadBlob(image,(size_t) runlength[y+z*iris_info.rows],
                   packets);
-                if (EOFBlob(image) != MagickFalse)
+                if (count != runlength[y+z*iris_info.rows])
                   break;
                 offset+=(ssize_t) runlength[y+z*iris_info.rows];
                 status=SGIDecode(bytes_per_pixel,(ssize_t)
                   (runlength[y+z*iris_info.rows]/bytes_per_pixel),packets,
                   (ssize_t) iris_info.columns,p+bytes_per_pixel*z);
                 if (status == MagickFalse)
-                  ThrowReaderException(CorruptImageError,"ImproperImageHeader");
+                  {
+                    packet_info=RelinquishVirtualMemory(packet_info);
+                    runlength=(size_t *) RelinquishMagickMemory(runlength);
+                    offsets=(ssize_t *) RelinquishMagickMemory(offsets);
+                    pixel_info=RelinquishVirtualMemory(pixel_info);
+                    ThrowReaderException(CorruptImageError,
+                      "ImproperImageHeader");
+                  }
               }
+              if (z < (ssize_t) iris_info.depth)
+                break;
               p+=(iris_info.columns*4*bytes_per_pixel);
             }
             offset=(ssize_t) SeekBlob(image,position,SEEK_SET);
@@ -544,13 +580,6 @@ static Image *ReadSGIImage(const ImageInfo *image_info,ExceptionInfo *exception)
         runlength=(size_t *) RelinquishMagickMemory(runlength);
         offsets=(ssize_t *) RelinquishMagickMemory(offsets);
       }
-    /*
-      Initialize image structure.
-    */
-    image->alpha_trait=iris_info.depth == 4 ? BlendPixelTrait :
-      UndefinedPixelTrait;
-    image->columns=iris_info.columns;
-    image->rows=iris_info.rows;
     /*
       Convert SGI raster image to pixel packets.
     */
@@ -628,7 +657,10 @@ static Image *ReadSGIImage(const ImageInfo *image_info,ExceptionInfo *exception)
           Create grayscale map.
         */
         if (AcquireImageColormap(image,image->colors,exception) == MagickFalse)
-          ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
+          {
+            pixel_info=RelinquishVirtualMemory(pixel_info);
+            ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
+          }
         /*
           Convert SGI image to PseudoClass pixel packets.
         */
@@ -752,7 +784,7 @@ ModuleExport size_t RegisterSGIImage(void)
   entry->decoder=(DecodeImageHandler *) ReadSGIImage;
   entry->encoder=(EncodeImageHandler *) WriteSGIImage;
   entry->magick=(IsImageFormatHandler *) IsSGI;
-  entry->flags|=CoderSeekableStreamFlag;
+  entry->flags|=CoderDecoderSeekableStreamFlag;
   (void) RegisterMagickInfo(entry);
   return(MagickImageCoderSignature);
 }
@@ -896,6 +928,9 @@ static MagickBooleanType WriteSGIImage(const ImageInfo *image_info,Image *image,
   register unsigned char
     *q;
 
+  size_t
+    imageListLength;
+
   ssize_t
     y,
     z;
@@ -921,13 +956,14 @@ static MagickBooleanType WriteSGIImage(const ImageInfo *image_info,Image *image,
   if (status == MagickFalse)
     return(status);
   scene=0;
+  imageListLength=GetImageListLength(image);
   do
   {
     /*
       Initialize SGI raster file header.
     */
     (void) TransformImageColorspace(image,sRGBColorspace,exception);
-    (void) ResetMagickMemory(&iris_info,0,sizeof(iris_info));
+    (void) memset(&iris_info,0,sizeof(iris_info));
     iris_info.magic=0x01DA;
     compression=image->compression;
     if (image_info->compression != UndefinedCompression)
@@ -1103,6 +1139,7 @@ static MagickBooleanType WriteSGIImage(const ImageInfo *image_info,Image *image,
               runlength=(size_t *) RelinquishMagickMemory(runlength);
             if (packet_info != (MemoryInfo *) NULL)
               packet_info=RelinquishVirtualMemory(packet_info);
+            pixel_info=RelinquishVirtualMemory(pixel_info);
             ThrowWriterException(ResourceLimitError,"MemoryAllocationFailed");
           }
         packets=(unsigned char *) GetVirtualMemoryBlob(packet_info);
@@ -1143,8 +1180,7 @@ static MagickBooleanType WriteSGIImage(const ImageInfo *image_info,Image *image,
     if (GetNextImageInList(image) == (Image *) NULL)
       break;
     image=SyncNextImageInList(image);
-    status=SetImageProgress(image,SaveImagesTag,scene++,
-      GetImageListLength(image));
+    status=SetImageProgress(image,SaveImagesTag,scene++,imageListLength);
     if (status == MagickFalse)
       break;
   } while (image_info->adjoin != MagickFalse);

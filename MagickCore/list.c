@@ -17,13 +17,13 @@
 %                               December 2002                                 %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://www.imagemagick.org/script/license.php                           %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -135,10 +135,14 @@ MagickExport Image *CloneImageList(const Image *images,ExceptionInfo *exception)
     return((Image *) NULL);
   assert(images->signature == MagickCoreSignature);
   while (images->previous != (Image *) NULL)
+  {
+    assert(images != images->previous);
     images=images->previous;
+  }
   image=(Image *) NULL;
   for (p=(Image *) NULL; images != (Image *) NULL; images=images->next)
   {
+    assert(images != images->next);
     clone=CloneImage(images,0,0,MagickTrue,exception);
     if (clone == (Image *) NULL)
       {
@@ -595,17 +599,10 @@ MagickExport Image *GetImageFromList(const Image *images,const ssize_t index)
   assert(images->signature == MagickCoreSignature);
   if (images->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",images->filename);
-
-  /*
-    Designed to efficiently find first image (index == 0), or last image
-    (index == -1) as appropriate, without to go through the whole image list.
-    That is it tries to avoid 'counting the whole list' to  handle the
-    most common image indexes.
-  */
-  if ( index < 0 )
+  if (index < 0)
     {
       p=GetLastImageInList(images);
-      for (i=-1; p != (Image *) NULL; p=p->previous)
+      for (i=(-1); p != (Image *) NULL; p=p->previous)
         if (i-- == index)
           break;
     }
@@ -650,7 +647,10 @@ MagickExport ssize_t GetImageIndexInList(const Image *images)
     return(-1);
   assert(images->signature == MagickCoreSignature);
   for (i=0; images->previous != (Image *) NULL; i++)
+  {
+    assert(images != images->previous);
     images=images->previous;
+  }
   return(i);
 }
 
@@ -689,7 +689,10 @@ MagickExport size_t GetImageListLength(const Image *images)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",images->filename);
   images=GetLastImageInList(images);
   for (i=0; images != (Image *) NULL; images=images->previous)
+  {
+    assert(images != images->previous);
     i++;
+  }
   return((size_t) i);
 }
 
@@ -846,7 +849,10 @@ MagickExport Image **ImageListToArray(const Image *images,
     }
   images=GetFirstImageInList(images);
   for (i=0; images != (Image *) NULL; images=images->next)
+  {
+    assert(images != images->next);
     group[i++]=(Image *) images;
+  }
   group[i]=(Image *) NULL;
   return(group);
 }
@@ -1181,7 +1187,7 @@ MagickExport void ReplaceImageInList(Image **images,Image *replace)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 %  ReplaceImageInListReturnLast() is exactly as ReplaceImageInList() except
-%  the images pointer is set to the last image in the list of replacemen
+%  the images pointer is set to the last image in the list of replacement
 %  images.
 %
 %  This allows you to simply use GetNextImageInList() to go to the image

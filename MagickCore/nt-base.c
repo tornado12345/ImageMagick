@@ -17,13 +17,13 @@
 %                                December 1996                                %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://www.imagemagick.org/script/license.php                           %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -46,6 +46,7 @@
 #include "MagickCore/log.h"
 #include "MagickCore/magick.h"
 #include "MagickCore/memory_.h"
+#include "MagickCore/memory-private.h"
 #include "MagickCore/nt-base.h"
 #include "MagickCore/nt-base-private.h"
 #include "MagickCore/resource_.h"
@@ -350,7 +351,7 @@ MagickPrivate int Exit(int status)
   exit(status);
 }
 
-#if !defined(__MINGW32__) && !defined(__MINGW64__)
+#if !defined(__MINGW32__)
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %                                                                             %
@@ -626,7 +627,7 @@ MagickPrivate double NTElapsedTime(void)
   SystemTimeToFileTime(&system_time,&elapsed_time.filetime);
   return((double) 1.0e-7*elapsed_time.filetime64);
 }
-
+
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %                                                                             %
@@ -678,6 +679,7 @@ MagickPrivate double NTErf(double x)
   y=1.0-(((((a5*t+a4)*t)+a3)*t+a2)*t+a1)*t*exp(-x*x);
   return(sign*y);
 }
+
 
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1017,6 +1019,33 @@ MagickPrivate MagickBooleanType NTGetModulePath(const char *module,char *path)
   if (length != 0)
     GetPathComponent(module_path,HeadPath,path);
   return(MagickTrue);
+}
+
+/*
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                                                                             %
+%                                                                             %
+%                                                                             %
++    N T G e t P a g e S i z e                                                %
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%  NTGetPageSize() returns the memory page size under Windows.
+%
+%  The format of the NTPageSize
+%
+%      NTPageSize()
+%
+*/
+MagickPrivate ssize_t NTGetPageSize(void)
+{
+  SYSTEM_INFO
+    system_info;
+
+   GetSystemInfo(&system_info);
+   return((ssize_t) system_info.dwPageSize);
 }
 
 /*
@@ -1518,13 +1547,13 @@ MagickPrivate int NTGhostscriptLoadDLL(void)
       UnlockSemaphoreInfo(ghost_semaphore);
       return(FALSE);
     }
-  (void) ResetMagickMemory((void *) &nt_ghost_info,0,sizeof(NTGhostInfo));
+  (void) memset((void *) &nt_ghost_info,0,sizeof(NTGhostInfo));
   nt_ghost_info.delete_instance=(void (MagickDLLCall *)(gs_main_instance *)) (
     lt_dlsym(ghost_handle,"gsapi_delete_instance"));
   nt_ghost_info.new_instance=(int (MagickDLLCall *)(gs_main_instance **,
     void *)) (lt_dlsym(ghost_handle,"gsapi_new_instance"));
   nt_ghost_info.has_instance=MagickFalse;
-  (void) ResetMagickMemory((void *) &ghost_info,0,sizeof(GhostInfo));
+  (void) memset((void *) &ghost_info,0,sizeof(GhostInfo));
   ghost_info.delete_instance=NTGhostscriptDeleteInstance;
   ghost_info.exit=(int (MagickDLLCall *)(gs_main_instance*))
     lt_dlsym(ghost_handle,"gsapi_exit");
@@ -1571,7 +1600,7 @@ MagickPrivate void NTGhostscriptUnLoadDLL(void)
     {
       (void) lt_dlclose(ghost_handle);
       ghost_handle=(void *) NULL;
-      (void) ResetMagickMemory((void *) &ghost_info,0,sizeof(GhostInfo));
+      (void) memset((void *) &ghost_info,0,sizeof(GhostInfo));
     }
   UnlockSemaphoreInfo(ghost_semaphore);
   RelinquishSemaphoreInfo(&ghost_semaphore);
@@ -1749,7 +1778,6 @@ MagickPrivate DIR *NTOpenDirectory(const char *path)
     length;
 
   wchar_t
-    directory_separator[MagickPathExtent],
     file_specification[MagickPathExtent];
 
   assert(path != (const char *) NULL);
@@ -1757,13 +1785,10 @@ MagickPrivate DIR *NTOpenDirectory(const char *path)
     MagickPathExtent);
   if (length == 0)
     return((DIR *) NULL);
-  length=MultiByteToWideChar(CP_UTF8,0,DirectorySeparator,-1,
-    directory_separator,strlen(DirectorySeparator)+1);
-  if (length == 0)
+  if (wcsncat(file_specification,(const wchar_t*) DirectorySeparator,
+        MagickPathExtent-wcslen(file_specification)-1) == (wchar_t*) NULL)
     return((DIR *) NULL);
-  if (wcsncat(file_specification,directory_separator,MagickPathExtent-wcslen(file_specification)-1) == (wchar_t*) NULL)
-    return((DIR *) NULL);
-  entry=(DIR *) AcquireMagickMemory(sizeof(DIR));
+  entry=(DIR *) AcquireCriticalMemory(sizeof(DIR));
   if (entry != (DIR *) NULL)
     {
       entry->firsttime=TRUE;
@@ -2003,8 +2028,9 @@ MagickPrivate unsigned char *NTRegistryKeyLookup(const char *subkey)
   /*
     Look-up base key.
   */
-  (void) FormatLocaleString(package_key,MagickPathExtent,"SOFTWARE\\%s\\%s\\Q:%d",
-    MagickPackageName,MagickLibVersionText,MAGICKCORE_QUANTUM_DEPTH);
+  (void) FormatLocaleString(package_key,MagickPathExtent,
+    "SOFTWARE\\%s\\%s\\Q:%d",MagickPackageName,MagickLibVersionText,
+    MAGICKCORE_QUANTUM_DEPTH);
   (void) LogMagickEvent(ConfigureEvent,GetMagickModule(),"%s",package_key);
   registry_key=(HKEY) INVALID_HANDLE_VALUE;
   status=RegOpenKeyExA(HKEY_LOCAL_MACHINE,package_key,0,KEY_READ,&registry_key);
@@ -2012,10 +2038,7 @@ MagickPrivate unsigned char *NTRegistryKeyLookup(const char *subkey)
     status=RegOpenKeyExA(HKEY_CURRENT_USER,package_key,0,KEY_READ,
       &registry_key);
   if (status != ERROR_SUCCESS)
-    {
-      registry_key=(HKEY) INVALID_HANDLE_VALUE;
-      return((unsigned char *) NULL);
-    }
+    return((unsigned char *) NULL);
   /*
     Look-up sub key.
   */
@@ -2171,7 +2194,7 @@ MagickPrivate unsigned char *NTResourceToBlob(const char *id)
     sizeof(*blob));
   if (blob != (unsigned char *) NULL)
     {
-      (void) CopyMagickMemory(blob,value,length);
+      (void) memcpy(blob,value,length);
       blob[length]='\0';
     }
   UnlockResource(global);
@@ -2207,9 +2230,10 @@ MagickPrivate unsigned char *NTResourceToBlob(const char *id)
 */
 MagickPrivate void NTSeekDirectory(DIR *entry,ssize_t position)
 {
-  (void) position;
   (void) LogMagickEvent(TraceEvent,GetMagickModule(),"...");
   assert(entry != (DIR *) NULL);
+  (void) entry;
+  (void) position;
 }
 
 /*
@@ -2768,7 +2792,7 @@ MagickPrivate void NTWindowsGenesis(void)
       (void) SetErrorMode(StringToInteger(mode));
       mode=DestroyString(mode);
     }
-#if defined(_DEBUG) && !defined(__BORLANDC__) && !defined(__MINGW32__) && !defined(__MINGW64__)
+#if defined(_DEBUG) && !defined(__BORLANDC__) && !defined(__MINGW32__)
   if (IsEventLogging() != MagickFalse)
     {
       int
@@ -2780,6 +2804,28 @@ MagickPrivate void NTWindowsGenesis(void)
       (void) _CrtSetDbgFlag(debug);
       _ASSERTE(_CrtCheckMemory());
     }
+#endif
+#if defined(MAGICKCORE_INSTALLED_SUPPORT)
+  {
+    unsigned char
+      *path;
+
+    path=NTRegistryKeyLookup("LibPath");
+    if (path != (unsigned char *) NULL)
+      {
+        size_t
+          length;
+
+        wchar_t
+          lib_path[MagickPathExtent];
+
+        length=MultiByteToWideChar(CP_UTF8,0,(char *) path,-1,lib_path,
+          MagickPathExtent);
+        if (length != 0)
+          SetDllDirectoryW(lib_path);
+        path=(unsigned char *) RelinquishMagickMemory(path);
+      }
+  }
 #endif
 }
 

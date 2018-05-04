@@ -1,7 +1,7 @@
 // This may look like C code, but it is really -*- C++ -*-
 //
 // Copyright Bob Friesenhahn, 1999, 2000, 2001, 2002, 2003
-// Copyright Dirk Lemstra 2014-2016
+// Copyright Dirk Lemstra 2014-2018
 //
 // Implementation of Options
 //
@@ -73,14 +73,14 @@ bool Magick::Options::adjoin(void) const
   return(static_cast<bool>(_imageInfo->adjoin));
 }
 
-void Magick::Options::alphaColor(const Color &alphaColor_)
+void Magick::Options::matteColor(const Color &matteColor_)
 {
-  _imageInfo->alpha_color=alphaColor_;
+  _imageInfo->matte_color=matteColor_;
 }
 
-Magick::Color Magick::Options::alphaColor(void) const
+Magick::Color Magick::Options::matteColor(void) const
 {
-  return(Magick::Color(_imageInfo->alpha_color));
+  return(Magick::Color(_imageInfo->matte_color));
 }
 
 void Magick::Options::backgroundColor(const Color &color_)
@@ -223,9 +223,13 @@ FILE *Magick::Options::file(void) const
 
 void Magick::Options::fileName(const std::string &fileName_)
 {
-  fileName_.copy(_imageInfo->filename,MagickPathExtent-1);
-  if (fileName_.length() > MagickPathExtent-1)
-    _imageInfo->filename[MagickPathExtent-1]=0;
+  ssize_t
+    max_length;
+
+  max_length=sizeof(_imageInfo->filename)-1;
+  fileName_.copy(_imageInfo->filename,max_length);
+  if ((ssize_t) fileName_.length() > max_length)
+    _imageInfo->filename[max_length]=0;
   else
     _imageInfo->filename[fileName_.length()]=0;
 }
@@ -394,10 +398,10 @@ void Magick::Options::magick(const std::string &magick_)
     magick_.c_str());
   GetPPException;
   SetImageInfo(_imageInfo,1,exceptionInfo);
+  ThrowPPException(_quiet);
   if ( _imageInfo->magick[0] == '\0' )
     throwExceptionExplicit(MagickCore::OptionError,"Unrecognized image format",
       magick_.c_str());
-  ThrowPPException(_quiet);
 }
 
 std::string Magick::Options::magick(void) const
@@ -587,6 +591,9 @@ void Magick::Options::strokeDashArray(const double *strokeDashArray_)
       // Allocate elements
       _drawInfo->dash_pattern=static_cast<double*>(AcquireMagickMemory((x+1)*
         sizeof(double)));
+      if (!_drawInfo->dash_pattern)
+        throwExceptionExplicit(MagickCore::ResourceLimitError,
+          "Unable to allocate dash-pattern memory");
       // Copy elements
       memcpy(_drawInfo->dash_pattern,strokeDashArray_,(x+1)*sizeof(double));
       _drawInfo->dash_pattern[x]=0.0;

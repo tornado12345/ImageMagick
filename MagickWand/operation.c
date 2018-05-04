@@ -17,13 +17,13 @@
 %                               September 2011                                %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://www.imagemagick.org/script/license.php                           %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -259,7 +259,7 @@ static Image *SparseColorOption(const Image *image,
       "MemoryAllocationFailed","%s","SparseColorOption");
     return( (Image *) NULL);
   }
-  (void) ResetMagickMemory(sparse_arguments,0,number_arguments*
+  (void) memset(sparse_arguments,0,number_arguments*
     sizeof(*sparse_arguments));
   p=arguments;
   x=0;
@@ -484,14 +484,6 @@ WandPrivate void CLISettingOptionInfo(MagickCLI *cli_wand,
             (void) ParseAffineGeometry(arg1,&_draw_info->affine,_exception);
           else
             GetAffineMatrix(&_draw_info->affine);
-          break;
-        }
-      if (LocaleCompare("alpha-color",option+1) == 0)
-        {
-          /* SyncImageSettings() used to set per-image attribute. */
-          (void) SetImageOption(_image_info,option+1,ArgOption(NULL));
-          (void) QueryColorCompliance(ArgOption(MogrifyAlphaColor),AllCompliance,
-             &_image_info->alpha_color,_exception);
           break;
         }
       if (LocaleCompare("antialias",option+1) == 0)
@@ -962,7 +954,8 @@ WandPrivate void CLISettingOptionInfo(MagickCLI *cli_wand,
         {
           /* FUTURE: this is only used by CompareImages() which is used
              only by the "compare" CLI program at this time.  */
-          (void) SetImageOption(_image_info,option+1,ArgOption(NULL));
+          (void) SetImageOption(_image_info,"compare:highlight-color",
+            ArgOption(NULL));
           break;
         }
       CLIWandExceptionBreak(OptionError,"UnrecognizedOption",option);
@@ -1086,7 +1079,8 @@ WandPrivate void CLISettingOptionInfo(MagickCLI *cli_wand,
         {
           /* FUTURE: this is only used by CompareImages() which is used
              only by the "compare" CLI program at this time.  */
-          (void) SetImageOption(_image_info,option+1,ArgOption(NULL));
+          (void) SetImageOption(_image_info,"compare:lowlight-color",
+            ArgOption(NULL));
           break;
         }
       if (LocaleCompare("loop",option+1) == 0)
@@ -1102,6 +1096,14 @@ WandPrivate void CLISettingOptionInfo(MagickCLI *cli_wand,
     }
     case 'm':
     {
+      if (LocaleCompare("mattecolor",option+1) == 0)
+        {
+          /* SyncImageSettings() used to set per-image attribute. */
+          (void) SetImageOption(_image_info,option+1,ArgOption(NULL));
+          (void) QueryColorCompliance(ArgOption(MogrifyAlphaColor),
+            AllCompliance,&_image_info->matte_color,_exception);
+          break;
+        }
       if (LocaleCompare("metric",option+1) == 0)
         {
           /* FUTURE: this is only used by CompareImages() which is used
@@ -1185,7 +1187,7 @@ WandPrivate void CLISettingOptionInfo(MagickCLI *cli_wand,
               (void) CloneString(&_image_info->page,(char *) NULL);
               break;
             }
-          (void) ResetMagickMemory(&geometry,0,sizeof(geometry));
+          (void) memset(&geometry,0,sizeof(geometry));
           image_option=GetImageOption(_image_info,"page");
           if (image_option != (const char *) NULL)
             flags=ParseAbsoluteGeometry(image_option,&geometry);
@@ -1327,7 +1329,7 @@ WandPrivate void CLISettingOptionInfo(MagickCLI *cli_wand,
         }
       if (LocaleCompare("seed",option+1) == 0)
         {
-          if (IsGeometry(arg1) == MagickFalse)
+          if (IfSetOption && (IsGeometry(arg1) == MagickFalse))
             CLIWandExceptArgBreak(OptionError,"InvalidArgument",option,arg1);
           SetRandomSecretKey(
                IfSetOption ? (unsigned long) StringToUnsignedLong(arg1)
@@ -1804,6 +1806,16 @@ static MagickBooleanType CLISimpleOperatorImage(MagickCLI *cli_wand,
           new_image=AutoOrientImage(_image,_image->orientation,_exception);
           break;
         }
+      if (LocaleCompare("auto-threshold",option+1) == 0)
+        {
+          AutoThresholdMethod
+            method;
+
+          method=(AutoThresholdMethod) ParseCommandOption(
+            MagickAutoThresholdOptions,MagickFalse,arg1);
+          (void) AutoThresholdImage(_image,method,_exception);
+          break;
+        }
       CLIWandExceptionBreak(OptionError,"UnrecognizedOption",option);
     }
     case 'b':
@@ -1905,9 +1917,8 @@ static MagickBooleanType CLISimpleOperatorImage(MagickCLI *cli_wand,
         }
       if (LocaleCompare("cdl",option+1) == 0)
         {
-          /* Note: arguments do not have percent escapes expanded */
           char
-            *color_correction_collection;
+            *color_correction_collection; /* Note: arguments do not have percent escapes expanded */
 
           /*
             Color correct with a color decision list.
@@ -1928,8 +1939,8 @@ static MagickBooleanType CLISimpleOperatorImage(MagickCLI *cli_wand,
             }
           parse=ParseChannelOption(arg1);
           if (parse < 0)
-            CLIWandExceptArgBreak(OptionError,"UnrecognizedIntensityMethod",
-              option,arg1);
+            CLIWandExceptArgBreak(OptionError,"UnrecognizedChannelType",option,
+              arg1);
           (void) SetPixelChannelMask(_image,(ChannelType) parse);
           break;
         }
@@ -1964,7 +1975,7 @@ static MagickBooleanType CLISimpleOperatorImage(MagickCLI *cli_wand,
           if (IfNormalOp)
             (void) ClipImage(_image,_exception);
           else /* "+mask" remove the write mask */
-            (void) SetImageMask(_image,ReadPixelMask,(Image *) NULL,_exception);
+            (void) SetImageMask(_image,WritePixelMask,(Image *) NULL,_exception);
           break;
         }
       if (LocaleCompare("clip-mask",option+1) == 0)
@@ -2122,10 +2133,10 @@ static MagickBooleanType CLISimpleOperatorImage(MagickCLI *cli_wand,
         {
           double
             gamma;
-            
+
           KernelInfo
             *kernel_info;
-            
+
           register ssize_t
             j;
 
@@ -2354,7 +2365,10 @@ static MagickBooleanType CLISimpleOperatorImage(MagickCLI *cli_wand,
           if (IsGeometry(arg1) == MagickFalse)
             CLIWandExceptArgBreak(OptionError,"InvalidArgument",option,arg1);
           (void) ParsePageGeometry(_image,arg1,&geometry,_exception);
-          (void) QueryColorCompliance(arg2,AllCompliance,&target,_exception);
+          (void) GetOneVirtualPixelInfo(_image,TileVirtualPixelMethod,
+            geometry.x,geometry.y,&target,exception);
+          (void) QueryColorCompliance(arg2,AllCompliance,&_draw_info->fill,
+            _exception);
           (void) FloodfillPaintImage(_image,_draw_info,&target,geometry.x,
             geometry.y,IsPlusOp,_exception);
           break;
@@ -2732,9 +2746,27 @@ static MagickBooleanType CLISimpleOperatorImage(MagickCLI *cli_wand,
         }
       if (LocaleCompare("mask",option+1) == 0)
         {
-          CLIWandWarnReplaced("-read-mask");
-          (void) CLISimpleOperatorImage(cli_wand,"-read-mask",NULL,NULL,
-            exception);
+          Image
+            *mask;
+
+          if (IfPlusOp)
+            {
+              /*
+                Remove a mask.
+              */
+              (void) SetImageMask(_image,WritePixelMask,(Image *) NULL,
+                _exception);
+              break;
+            }
+          /*
+            Set the image mask.
+          */
+          mask=GetImageCache(_image_info,arg1,_exception);
+          if (mask == (Image *) NULL)
+            break;
+          (void) NegateImage(mask,MagickFalse,exception);
+          (void) SetImageMask(_image,WritePixelMask,mask,_exception);
+          mask=DestroyImage(mask);
           break;
         }
       if (LocaleCompare("matte",option+1) == 0)
@@ -3086,16 +3118,16 @@ static MagickBooleanType CLISimpleOperatorImage(MagickCLI *cli_wand,
         }
       if (LocaleCompare("region",option+1) == 0)
         {
-          if (IsGeometry(arg1) == MagickFalse)
-            CLIWandExceptArgBreak(OptionError,"InvalidArgument",option,arg1);
           if (*option == '+')
             {
-              (void) SetImageRegionMask(_image,ReadPixelMask,
+              (void) SetImageRegionMask(_image,WritePixelMask,
                 (const RectangleInfo *) NULL,_exception);
               break;
             }
+          if (IsGeometry(arg1) == MagickFalse)
+            CLIWandExceptArgBreak(OptionError,"InvalidArgument",option,arg1);
           (void) ParseGravityGeometry(_image,arg1,&geometry,_exception);
-          (void) SetImageRegionMask(_image,ReadPixelMask,&geometry,_exception);
+          (void) SetImageRegionMask(_image,WritePixelMask,&geometry,_exception);
           break;
         }
       if (LocaleCompare("remap",option+1) == 0)
@@ -3149,7 +3181,12 @@ static MagickBooleanType CLISimpleOperatorImage(MagickCLI *cli_wand,
         {
           if (IsGeometry(arg1) == MagickFalse)
             CLIWandExceptArgBreak(OptionError,"InvalidArgument",option,arg1);
-          (void) ParsePageGeometry(_image,arg1,&geometry,_exception);
+          flags=ParsePageGeometry(_image,arg1,&geometry,_exception);
+          if ((flags & PercentValue) != 0)
+            {
+              geometry.x*=(double) _image->columns/100.0;
+              geometry.y*=(double) _image->rows/100.0;
+            }
           new_image=RollImage(_image,geometry.x,geometry.y,_exception);
           break;
         }
@@ -3765,7 +3802,8 @@ WandPrivate MagickBooleanType CLIListOperatorImages(MagickCLI *cli_wand,
       if (LocaleCompare("average",option+1) == 0)
         {
           CLIWandWarnReplaced("-evaluate-sequence Mean");
-          (void) CLIListOperatorImages(cli_wand,"-evaluate-sequence","Mean",NULL);
+          (void) CLIListOperatorImages(cli_wand,"-evaluate-sequence","Mean",
+            NULL);
           break;
         }
       CLIWandExceptionBreak(OptionError,"UnrecognizedOption",option);
@@ -3804,6 +3842,8 @@ WandPrivate MagickBooleanType CLIListOperatorImages(MagickCLI *cli_wand,
       if (LocaleCompare("combine",option+1) == 0)
         {
           parse=(ssize_t) _images->colorspace;
+          if (_images->number_channels < GetImageListLength(_images))
+            parse=sRGBColorspace;
           if ( IfPlusOp )
             parse=ParseCommandOption(MagickColorspaceOptions,MagickFalse,arg1);
           if (parse < 0)
@@ -4541,6 +4581,9 @@ WandPrivate MagickBooleanType CLIListOperatorImages(MagickCLI *cli_wand,
         if (p == q)
           CLIWandExceptArgBreak(OptionError,"InvalidImageIndex",option,arg1);
         swap=CloneImage(p,0,0,MagickTrue,_exception);
+        if (swap == (Image *) NULL)
+          CLIWandExceptArgBreak(ResourceLimitError,"MemoryAllocationFailed",
+            option,GetExceptionMessage(errno));
         ReplaceImageInList(&p,CloneImage(q,0,0,MagickTrue,_exception));
         ReplaceImageInList(&q,swap);
         _images=GetFirstImageInList(q);
@@ -4722,8 +4765,9 @@ WandPrivate void CLINoImageOperator(MagickCLI *cli_wand,
         else
           new_images=ReadImages(_image_info,argv[i],_exception);
         AppendImageToList(&_images, new_images);
+        argv[i]=DestroyString(argv[i]);
       }
-      argv=DestroyStringList(argv);  /* Destroy the Expanded Filename list */
+      argv=(char **) RelinquishMagickMemory(argv);
       break;
     }
     /*

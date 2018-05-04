@@ -4,13 +4,13 @@ ImageMagick
 <p align="center">
 <img align="center" src="https://www.imagemagick.org/image/wizard.png" alt="ImageMagick logo" width="265"/>
 
-[ImageMagick®](https://www.imagemagick.org/) is a software suite to create, edit, compose, or convert bitmap images. It can read and write images in a variety of [formats](https://www.imagemagick.org/script/formats.php) (over 200) including PNG, JPEG, JPEG-2000, GIF, TIFF, DPX, EXR, WebP, Postscript, PDF, and SVG.  Use ImageMagick to resize, flip, mirror, rotate, distort, shear and transform images, adjust image colors, apply various special effects, or draw text, lines, polygons, ellipses and Bézier curves.
+[ImageMagick®](https://www.imagemagick.org/) is a software suite to create, edit, compose, or convert bitmap images. It can read and write images in a variety of [formats](https://www.imagemagick.org/script/formats.php) (over 200) including PNG, JPEG, GIF, HEIC, TIFF, DPX, EXR, WebP, Postscript, PDF, and SVG.  Use ImageMagick to resize, flip, mirror, rotate, distort, shear and transform images, adjust image colors, apply various special effects, or draw text, lines, polygons, ellipses and Bézier curves.
 
 
 | Version | *nix | Windows |
 | ------------- | ------------- | ------------- |
 | 7 | [![Build Status](https://travis-ci.org/ImageMagick/ImageMagick.svg?branch=master)](https://travis-ci.org/ImageMagick/ImageMagick) | [![Build status](https://ci.appveyor.com/api/projects/status/jk7yr5plamnuh9g6/branch/master?svg=true)](https://ci.appveyor.com/project/dlemstra/imagemagick-windows/branch/master) |
-| 6 | [![Build Status](https://travis-ci.org/ImageMagick/ImageMagick.svg?branch=ImageMagick-6)](https://travis-ci.org/ImageMagick/ImageMagick) | [![Build status](https://ci.appveyor.com/api/projects/status/jk7yr5plamnuh9g6/branch/ImageMagick-Windows-6?svg=true)](https://ci.appveyor.com/project/dlemstra/imagemagick-windows/branch/ImageMagick-Windows-6) |
+| 6 | [![Build Status](https://travis-ci.org/ImageMagick/ImageMagick6.svg?branch=master)](https://travis-ci.org/ImageMagick/ImageMagick6) | [![Build status](https://ci.appveyor.com/api/projects/status/jk7yr5plamnuh9g6/branch/ImageMagick-Windows-6?svg=true)](https://ci.appveyor.com/project/dlemstra/imagemagick-windows/branch/ImageMagick-Windows-6) |
 
 #### What is ImageMagick?
 
@@ -22,9 +22,9 @@ ImageMagick is free software delivered as a ready-to-run binary distribution or 
 
 The ImageMagick development process ensures a stable API and ABI. Before each ImageMagick release, we perform a comprehensive security assessment that includes memory error and thread data race detection to prevent security vulnerabilities.
 
-ImageMagick is available from https://www.imagemagick.org/script/binary-releases.php. It runs on Linux, Windows, Mac Os X, iOS, Android OS, and others.
+ImageMagick is available from https://www.imagemagick.org/script/download.php. It runs on Linux, Windows, Mac Os X, iOS, Android OS, and others.
 
-The authoritative ImageMagick web site is https://www.imagemagick.org. The authoritative source code repository is http://git.imagemagick.org/repos/ImageMagick/.
+The authoritative ImageMagick web site is https://www.imagemagick.org. The authoritative source code repository is https://github.com/ImageMagick. We maintain a source code mirror at https://gitlab.com/ImageMagick.
 
 #### Features and Capabilities
 
@@ -59,10 +59,12 @@ Here are just a few examples of what ImageMagick can do:
 * [Threads of execution support](https://www.imagemagick.org/script/architecture.php#threads): ImageMagick is thread safe and most internal algorithms are OpenMP-enabled to take advantage of speed-ups offered by multicore processor chips.
 * [Distributed pixel cache](https://www.imagemagick.org/script/distribute-pixel-cache.php): offload intermediate pixel storage to one or more remote servers.
 * [Heterogeneous distributed processing](https://www.imagemagick.org/script/architecture.php#distributed): certain algorithms are OpenCL-enabled to take advantage of speed-ups offered by executing in concert across heterogeneous platforms consisting of CPUs, GPUs, and other processors.
-* [ImageMagick on the iPhone](https://www.imagemagick.org/script/binary-releases.php#iOS): convert, edit, or compose images on your iPhone.
+* [ImageMagick on the iPhone](https://www.imagemagick.org/script/download.php#iOS): convert, edit, or compose images on your iPhone.
 
 [Examples of ImageMagick Usage](https://www.imagemagick.org/Usage/), shows how to use ImageMagick from the command-line to accomplish any of these tasks and much more. Also, see [Fred's ImageMagick Scripts](http://www.fmwconcepts.com/imagemagick/): a plethora of command-line scripts that perform geometric transforms, blurs, sharpens, edging, noise removal, and color manipulations. With [Magick.NET](https://magick.codeplex.com/), use ImageMagick without having to install ImageMagick on your server or desktop.
 
 #### News
 
-The design of ImageMagick is an evolutionary process, with the design and implementation efforts serving to influence and guide further progress in the other.  With [ImageMagick version 7](http://nextgen.imagemagick.org), we aim to improve the design based on lessons learned from the version 6 implementation.  See the [porting](https://www.imagemagick.org/script/porting.php) guide to track the progress of the version 7 development effort.
+Now that ImageMagick [version 7](https://www.imagemagick.org) is released, we continue to maintain the legacy release of ImageMagick, [version 6](https://legacy.imagemagick.org). Learn how ImageMagick version 7 differs from previous versions with our [porting guide](https://www.imagemagick.org/script/porting.php).
+
+ImageMagick best practices **strongly** encourages you to configure a [security policy](https://www.imagemagick.org/script/security-policy.php) that suits your local environment.

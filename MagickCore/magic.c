@@ -17,13 +17,13 @@
 %                                 July 2000                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://www.imagemagick.org/script/license.php                           %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -50,6 +50,7 @@
 #include "MagickCore/magic.h"
 #include "MagickCore/magic-private.h"
 #include "MagickCore/memory_.h"
+#include "MagickCore/memory-private.h"
 #include "MagickCore/semaphore.h"
 #include "MagickCore/string_.h"
 #include "MagickCore/string-private.h"
@@ -127,6 +128,7 @@ static const MagicMapInfo
     { "HDF", 1, MagicPattern("HDF") },
     { "HDR", 0, MagicPattern("#?RADIANCE") },
     { "HDR", 0, MagicPattern("#?RGBE") },
+    { "HEIC", 8, MagicPattern("heic") },
     { "HPGL", 0, MagicPattern("IN;") },
     { "HTML", 1, MagicPattern("HTML") },
     { "HTML", 1, MagicPattern("html") },
@@ -168,6 +170,8 @@ static const MagicMapInfo
     { "PAM", 0, MagicPattern("P7") },
     { "PFM", 0, MagicPattern("PF") },
     { "PFM", 0, MagicPattern("Pf") },
+    { "PGX", 0, MagicPattern("PG ML") },
+    { "PGX", 0, MagicPattern("PG LM") },
     { "PS", 0, MagicPattern("%!") },
     { "PS", 0, MagicPattern("\004%!") },
     { "PS", 0, MagicPattern("\305\320\323\306") },
@@ -249,10 +253,8 @@ static int CompareMagickInfoSize(const void *a,const void *b)
 
   ma=(MagicInfo *) a;
   mb=(MagicInfo *) b;
-
   if (ma->offset != mb->offset)
     return((int) (ma->offset-mb->offset));
-
   return((int) (mb->length-ma->length));
 }
 
@@ -272,8 +274,6 @@ static LinkedListInfo *AcquireMagicCache(const char *filename,
     Load external magic map.
   */
   cache=NewLinkedList(0);
-  if (cache == (LinkedListInfo *) NULL)
-    ThrowFatalException(ResourceLimitFatalError,"MemoryAllocationFailed");
   status=MagickTrue;
 #if !defined(MAGICKCORE_ZERO_CONFIGURATION_SUPPORT)
   {
@@ -318,7 +318,7 @@ static LinkedListInfo *AcquireMagicCache(const char *filename,
           ResourceLimitError,"MemoryAllocationFailed","`%s'",p->name);
         continue;
       }
-    (void) ResetMagickMemory(magic_info,0,sizeof(*magic_info));
+    (void) memset(magic_info,0,sizeof(*magic_info));
     magic_info->path=(char *) "[built-in]";
     magic_info->name=(char *) p->name;
     magic_info->offset=p->offset;
@@ -756,7 +756,6 @@ MagickExport MagickBooleanType ListMagicInfo(FILE *file,
   magic_info=GetMagicInfoList("*",&number_aliases,exception);
   if (magic_info == (const MagicInfo **) NULL)
     return(MagickFalse);
-  j=0;
   path=(const char *) NULL;
   for (i=0; i < (ssize_t) number_aliases; i++)
   {
@@ -779,9 +778,6 @@ MagickExport MagickBooleanType ListMagicInfo(FILE *file,
     (void) FormatLocaleFile(file,"%6ld ",(long) magic_info[i]->offset);
     if (magic_info[i]->target != (char *) NULL)
       {
-        register ssize_t
-          j;
-
         for (j=0; magic_info[i]->target[j] != '\0'; j++)
           if (isprint((int) ((unsigned char) magic_info[i]->target[j])) != 0)
             (void) FormatLocaleFile(file,"%c",magic_info[i]->target[j]);
@@ -897,7 +893,7 @@ static MagickBooleanType LoadMagicCache(LinkedListInfo *cache,const char *xml,
           GetNextToken(q,&q,extent,token);
           if (LocaleCompare(keyword,"file") == 0)
             {
-              if (depth > 200)
+              if (depth > MagickMaxRecursionDepth)
                 (void) ThrowMagickException(exception,GetMagickModule(),
                   ConfigureError,"IncludeElementNestedTooDeeply","`%s'",token);
               else
@@ -931,10 +927,8 @@ static MagickBooleanType LoadMagicCache(LinkedListInfo *cache,const char *xml,
         /*
           Magic element.
         */
-        magic_info=(MagicInfo *) AcquireMagickMemory(sizeof(*magic_info));
-        if (magic_info == (MagicInfo *) NULL)
-          ThrowFatalException(ResourceLimitFatalError,"MemoryAllocationFailed");
-        (void) ResetMagickMemory(magic_info,0,sizeof(*magic_info));
+        magic_info=(MagicInfo *) AcquireCriticalMemory(sizeof(*magic_info));
+        (void) memset(magic_info,0,sizeof(*magic_info));
         magic_info->path=ConstantString(filename);
         magic_info->exempt=MagickFalse;
         magic_info->signature=MagickCoreSignature;
@@ -942,7 +936,8 @@ static MagickBooleanType LoadMagicCache(LinkedListInfo *cache,const char *xml,
       }
     if (magic_info == (MagicInfo *) NULL)
       continue;
-    if (LocaleCompare(keyword,"/>") == 0)
+    if ((LocaleCompare(keyword,"/>") == 0) ||
+        (LocaleCompare(keyword,"</policy>") == 0))
       {
         status=InsertValueInSortedLinkedList(cache,CompareMagickInfoSize,
           NULL,magic_info);
@@ -999,7 +994,7 @@ static MagickBooleanType LoadMagicCache(LinkedListInfo *cache,const char *xml,
               *p;
 
             register unsigned char
-              *q;
+              *r;
 
             size_t
               length;
@@ -1007,7 +1002,7 @@ static MagickBooleanType LoadMagicCache(LinkedListInfo *cache,const char *xml,
             length=strlen(token);
             magic_info->target=ConstantString(token);
             magic_info->magic=(unsigned char *) ConstantString(token);
-            q=magic_info->magic;
+            r=magic_info->magic;
             for (p=magic_info->target; *p != '\0'; )
             {
               if (*p == '\\')
@@ -1018,32 +1013,32 @@ static MagickBooleanType LoadMagicCache(LinkedListInfo *cache,const char *xml,
                       char
                         *end;
 
-                      *q++=(unsigned char) strtol(p,&end,8);
+                      *r++=(unsigned char) strtol(p,&end,8);
                       p+=(end-p);
                       magic_info->length++;
                       continue;
                     }
                   switch (*p)
                   {
-                    case 'b': *q='\b'; break;
-                    case 'f': *q='\f'; break;
-                    case 'n': *q='\n'; break;
-                    case 'r': *q='\r'; break;
-                    case 't': *q='\t'; break;
-                    case 'v': *q='\v'; break;
-                    case 'a': *q='a'; break;
-                    case '?': *q='\?'; break;
-                    default: *q=(unsigned char) (*p); break;
+                    case 'b': *r='\b'; break;
+                    case 'f': *r='\f'; break;
+                    case 'n': *r='\n'; break;
+                    case 'r': *r='\r'; break;
+                    case 't': *r='\t'; break;
+                    case 'v': *r='\v'; break;
+                    case 'a': *r='a'; break;
+                    case '?': *r='\?'; break;
+                    default: *r=(unsigned char) (*p); break;
                   }
                   p++;
-                  q++;
+                  r++;
                   magic_info->length++;
                   continue;
                 }
               else
                 if (LocaleNCompare(p,"&amp;",5) == 0)
                   (void) CopyMagickString(p+1,p+5,length-magic_info->length);
-              *q++=(unsigned char) (*p++);
+              *r++=(unsigned char) (*p++);
               magic_info->length++;
             }
             break;

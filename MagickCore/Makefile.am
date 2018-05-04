@@ -1,4 +1,4 @@
-#  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization
+#  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization
 #  dedicated to making software imaging solutions freely available.
 #
 #  You may not use this file except in compliance with the License.  You may
@@ -391,6 +391,7 @@ MAGICKCORE_INCLUDE_HDRS = \
 	MagickCore/shear.h \
 	MagickCore/signature.h \
 	MagickCore/splay-tree.h \
+	MagickCore/static.h \
 	MagickCore/statistic.h \
 	MagickCore/stream.h \
 	MagickCore/string_.h \
@@ -462,7 +463,6 @@ MAGICKCORE_NOINST_HDRS = \
  	MagickCore/semaphore-private.h \
 	MagickCore/semaphore-private.h \
 	MagickCore/signature-private.h \
-	MagickCore/static.h \
 	MagickCore/stream-private.h \
 	MagickCore/string-private.h \
 	MagickCore/thread_.h \

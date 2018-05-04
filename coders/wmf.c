@@ -17,13 +17,13 @@
 %                               December 2000                                 %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://www.imagemagick.org/script/license.php                           %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -64,7 +64,7 @@
 #include "MagickWand/MagickWand.h"
 
 #if defined(__CYGWIN__)
-#undef MAGICKCORE_SANS_DELEGATE 
+#undef MAGICKCORE_SANS_DELEGATE
 #endif
 
 #if defined(MAGICKCORE_SANS_DELEGATE)
@@ -818,7 +818,9 @@ static void ipa_device_close(wmfAPI * API)
       DestroyDrawInfo(ddata->draw_info);
       ddata->draw_info=(DrawInfo *)NULL;
     }
-  RelinquishMagickMemory(WMF_MAGICK_GetFontData(API)->ps_name);
+  if (WMF_MAGICK_GetFontData(API)->ps_name)
+    WMF_MAGICK_GetFontData(API)->ps_name=(char *) RelinquishMagickMemory(
+      WMF_MAGICK_GetFontData(API)->ps_name);
 }
 
 /*
@@ -1423,7 +1425,7 @@ static void ipa_functions(wmfAPI *API)
   if (ERR(API))
     return;
 
-  (void) ResetMagickMemory((void *) ddata, 0, sizeof(wmf_magick_t));
+  (void) memset((void *) ddata, 0, sizeof(wmf_magick_t));
   API->device_data = (void *) ddata;
 
   /*
@@ -2605,7 +2607,7 @@ static Image *ReadWMFImage(const ImageInfo *image_info,ExceptionInfo *exception)
 
   /* Register callbacks */
   wmf_options_flags |= WMF_OPT_FUNCTION;
-  (void) ResetMagickMemory(&wmf_api_options, 0, sizeof(wmf_api_options));
+  (void) memset(&wmf_api_options, 0, sizeof(wmf_api_options));
   wmf_api_options.function = ipa_functions;
 
   /* Ignore non-fatal errors */
@@ -2614,8 +2616,6 @@ static Image *ReadWMFImage(const ImageInfo *image_info,ExceptionInfo *exception)
   wmf_error = wmf_api_create(&API, wmf_options_flags, &wmf_api_options);
   if (wmf_error != wmf_E_None)
     {
-      if (API)
-        wmf_api_destroy(API);
       if (image->debug != MagickFalse)
         {
           (void) LogMagickEvent(CoderEvent,GetMagickModule(),
@@ -2623,6 +2623,8 @@ static Image *ReadWMFImage(const ImageInfo *image_info,ExceptionInfo *exception)
           (void) LogMagickEvent(CoderEvent,GetMagickModule(),
             "leave ReadWMFImage()");
         }
+      if (API)
+        wmf_api_destroy(API);
       ThrowReaderException(DelegateError,"UnableToInitializeWMFLibrary");
     }
 
@@ -2654,7 +2656,6 @@ static Image *ReadWMFImage(const ImageInfo *image_info,ExceptionInfo *exception)
     ipa_blob_tell,(void*)image);
   if (wmf_error != wmf_E_None)
     {
-      wmf_api_destroy(API);
       if (image->debug != MagickFalse)
         {
           (void) LogMagickEvent(CoderEvent,GetMagickModule(),
@@ -2662,6 +2663,7 @@ static Image *ReadWMFImage(const ImageInfo *image_info,ExceptionInfo *exception)
           (void) LogMagickEvent(CoderEvent,GetMagickModule(),
             "leave ReadWMFImage()");
         }
+      wmf_api_destroy(API);
       ThrowFileException(exception,FileOpenError,"UnableToOpenFile",
         image->filename);
       image=DestroyImageList(image);
@@ -2678,7 +2680,6 @@ static Image *ReadWMFImage(const ImageInfo *image_info,ExceptionInfo *exception)
   wmf_error=wmf_scan(API, 0, &bbox);
   if (wmf_error != wmf_E_None)
     {
-      wmf_api_destroy(API);
       if (image->debug != MagickFalse)
         {
           (void) LogMagickEvent(CoderEvent,GetMagickModule(),
@@ -2686,6 +2687,8 @@ static Image *ReadWMFImage(const ImageInfo *image_info,ExceptionInfo *exception)
           (void) LogMagickEvent(CoderEvent,GetMagickModule(),
             "leave ReadWMFImage()");
         }
+      ipa_device_close(API);
+      wmf_api_destroy(API);
       ThrowReaderException(DelegateError,"FailedToScanFile");
     }
 
@@ -2716,7 +2719,6 @@ static Image *ReadWMFImage(const ImageInfo *image_info,ExceptionInfo *exception)
   wmf_error=wmf_size(API,&wmf_width,&wmf_height);
   if (wmf_error != wmf_E_None)
     {
-      wmf_api_destroy(API);
       if (image->debug != MagickFalse)
         {
           (void) LogMagickEvent(CoderEvent,GetMagickModule(),
@@ -2724,6 +2726,7 @@ static Image *ReadWMFImage(const ImageInfo *image_info,ExceptionInfo *exception)
           (void) LogMagickEvent(CoderEvent,GetMagickModule(),
             "leave ReadWMFImage()");
         }
+      wmf_api_destroy(API);
       ThrowReaderException(DelegateError,"FailedToComputeOutputSize");
     }
 
@@ -2887,7 +2890,6 @@ static Image *ReadWMFImage(const ImageInfo *image_info,ExceptionInfo *exception)
   wmf_error = wmf_play(API, 0, &bbox);
   if (wmf_error != wmf_E_None)
     {
-      wmf_api_destroy(API);
       if (image->debug != MagickFalse)
         {
           (void) LogMagickEvent(CoderEvent,GetMagickModule(),
@@ -2895,6 +2897,7 @@ static Image *ReadWMFImage(const ImageInfo *image_info,ExceptionInfo *exception)
           (void) LogMagickEvent(CoderEvent,GetMagickModule(),
             "leave ReadWMFImage()");
         }
+      wmf_api_destroy(API);
       ThrowReaderException(DelegateError,"FailedToRenderFile");
     }
 
@@ -2952,7 +2955,7 @@ ModuleExport size_t RegisterWMFImage(void)
 #if defined(MAGICKCORE_SANS_DELEGATE) || defined(MAGICKCORE_WMF_DELEGATE)
   entry->decoder=ReadWMFImage;
 #endif
-  entry->flags|=CoderSeekableStreamFlag;
+  entry->flags|=CoderDecoderSeekableStreamFlag;
   (void) RegisterMagickInfo(entry);
   entry=AcquireMagickInfo("WMF","WMF","Windows Meta File");
 #if defined(MAGICKCORE_SANS_DELEGATE) || defined(MAGICKCORE_WMF_DELEGATE)

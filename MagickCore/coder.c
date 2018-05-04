@@ -17,13 +17,13 @@
 %                                 May 2001                                    %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://www.imagemagick.org/script/license.php                           %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -51,6 +51,7 @@
 #include "MagickCore/linked-list.h"
 #include "MagickCore/log.h"
 #include "MagickCore/memory_.h"
+#include "MagickCore/memory-private.h"
 #include "MagickCore/option.h"
 #include "MagickCore/semaphore.h"
 #include "MagickCore/string_.h"
@@ -83,7 +84,8 @@ static const CoderMapInfo
   CoderMap[] =
   {
     { "3FR", "DNG" },
-    { "8BIM", "META" },
+    { "3GP", "MPEG" },
+    { "3G2", "MPEG" },
     { "8BIMTEXT", "META" },
     { "8BIMWTEXT", "META" },
     { "AFM", "TTF" },
@@ -134,11 +136,13 @@ static const CoderMapInfo
     { "GIF87", "GIF" },
     { "G", "RAW" },
     { "GRANITE", "MAGICK" },
+    { "GRAYA", "GRAY" },
     { "GROUP4", "TIFF" },
     { "GV", "DOT" },
     { "HTM", "HTML" },
     { "ICB", "TGA" },
     { "ICO", "ICON" },
+    { "ICODIB", "DIB" },
     { "IIQ", "DNG" },
     { "K25", "DNG" },
     { "KDC", "DNG" },
@@ -206,7 +210,6 @@ static const CoderMapInfo
     { "PFB", "TTF" },
     { "PFM", "PNM" },
     { "PGM", "PNM" },
-    { "PGX", "JP2" },
     { "PICON", "XPM" },
     { "PJPEG", "JPEG" },
     { "PM", "XPM" },
@@ -333,8 +336,6 @@ static SplayTreeInfo *AcquireCoderCache(const char *filename,
   */
   cache=NewSplayTree(CompareSplayTreeString,RelinquishMagickMemory,
     DestroyCoderNode);
-  if (cache == (SplayTreeInfo *) NULL)
-    ThrowFatalException(ResourceLimitFatalError,"MemoryAllocationFailed");
   status=MagickTrue;
 #if !defined(MAGICKCORE_ZERO_CONFIGURATION_SUPPORT)
   {
@@ -374,7 +375,7 @@ static SplayTreeInfo *AcquireCoderCache(const char *filename,
           ResourceLimitError,"MemoryAllocationFailed","`%s'",p->name);
         continue;
       }
-    (void) ResetMagickMemory(coder_info,0,sizeof(*coder_info));
+    (void) memset(coder_info,0,sizeof(*coder_info));
     coder_info->path=(char *) "[built-in]";
     coder_info->magick=(char *) p->magick;
     coder_info->name=(char *) p->name;
@@ -471,23 +472,12 @@ MagickPrivate void CoderComponentTerminus(void)
 MagickExport const CoderInfo *GetCoderInfo(const char *name,
   ExceptionInfo *exception)
 {
-  const CoderInfo
-    *coder_info;
-
   assert(exception != (ExceptionInfo *) NULL);
   if (IsCoderTreeInstantiated(exception) == MagickFalse)
     return((const CoderInfo *) NULL);
-  LockSemaphoreInfo(coder_semaphore);
   if ((name == (const char *) NULL) || (LocaleCompare(name,"*") == 0))
-    {
-      ResetSplayTreeIterator(coder_cache);
-      coder_info=(const CoderInfo *) GetNextValueInSplayTree(coder_cache);
-      UnlockSemaphoreInfo(coder_semaphore);
-      return(coder_info);
-    }
-  coder_info=(const CoderInfo *) GetValueFromSplayTree(coder_cache,name);
-  UnlockSemaphoreInfo(coder_semaphore);
-  return(coder_info);
+    return((const CoderInfo *) GetRootValueFromSplayTree(coder_cache));
+  return((const CoderInfo *) GetValueFromSplayTree(coder_cache,name));
 }
 
 /*
@@ -874,7 +864,7 @@ static MagickBooleanType LoadCoderCache(SplayTreeInfo *cache,const char *xml,
           GetNextToken(q,&q,extent,token);
           if (LocaleCompare(keyword,"file") == 0)
             {
-              if (depth > 200)
+              if (depth > MagickMaxRecursionDepth)
                 (void) ThrowMagickException(exception,GetMagickModule(),
                   ConfigureError,"IncludeNodeNestedTooDeeply","`%s'",token);
               else
@@ -908,10 +898,8 @@ static MagickBooleanType LoadCoderCache(SplayTreeInfo *cache,const char *xml,
         /*
           Coder element.
         */
-        coder_info=(CoderInfo *) AcquireMagickMemory(sizeof(*coder_info));
-        if (coder_info == (CoderInfo *) NULL)
-          ThrowFatalException(ResourceLimitFatalError,"MemoryAllocationFailed");
-        (void) ResetMagickMemory(coder_info,0,sizeof(*coder_info));
+        coder_info=(CoderInfo *) AcquireCriticalMemory(sizeof(*coder_info));
+        (void) memset(coder_info,0,sizeof(*coder_info));
         coder_info->path=ConstantString(filename);
         coder_info->exempt=MagickFalse;
         coder_info->signature=MagickCoreSignature;
@@ -919,7 +907,8 @@ static MagickBooleanType LoadCoderCache(SplayTreeInfo *cache,const char *xml,
       }
     if (coder_info == (CoderInfo *) NULL)
       continue;
-    if (LocaleCompare(keyword,"/>") == 0)
+    if ((LocaleCompare(keyword,"/>") == 0) ||
+        (LocaleCompare(keyword,"</policy>") == 0))
       {
         status=AddValueToSplayTree(cache,ConstantString(coder_info->magick),
           coder_info);

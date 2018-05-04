@@ -17,13 +17,13 @@
 %                                 April 2007                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://www.imagemagick.org/script/license.php                           %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -207,6 +207,7 @@ static Image *ReadEXRImage(const ImageInfo *image_info,ExceptionInfo *exception)
       if (LocaleCompare(image_info->filename,read_info->filename) != 0)
         (void) RelinquishUniqueFileResource(read_info->filename);
       read_info=DestroyImageInfo(read_info);
+      image=DestroyImageList(image);
       return((Image *) NULL);
     }
   hdr_info=ImfInputHeader(file);
@@ -244,6 +245,7 @@ static Image *ReadEXRImage(const ImageInfo *image_info,ExceptionInfo *exception)
           if (LocaleCompare(image_info->filename,read_info->filename) != 0)
             (void) RelinquishUniqueFileResource(read_info->filename);
           read_info=DestroyImageInfo(read_info);
+          image=DestroyImageList(image);
           ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
         }
     }
@@ -258,15 +260,15 @@ static Image *ReadEXRImage(const ImageInfo *image_info,ExceptionInfo *exception)
     yy=display_window.min_y+y;
     if ((yy < data_window.min_y) || (yy > data_window.max_y) ||
         (scanline == (ImfRgba *) NULL))
-    {
-      for (x=0; x < (ssize_t) image->columns; x++)
       {
-        SetPixelViaPixelInfo(image,&image->background_color,q);
-        q+=GetPixelChannels(image);
+        for (x=0; x < (ssize_t) image->columns; x++)
+        {
+          SetPixelViaPixelInfo(image,&image->background_color,q);
+          q+=GetPixelChannels(image);
+        }
+        continue;
       }
-      continue;
-    }
-    ResetMagickMemory(scanline,0,columns*sizeof(*scanline));
+    memset(scanline,0,columns*sizeof(*scanline));
     ImfInputSetFrameBuffer(file,scanline-data_window.min_x-columns*yy,1,
       columns);
     ImfInputReadPixels(file,yy,yy);
@@ -574,7 +576,7 @@ static MagickBooleanType WriteEXRImage(const ImageInfo *image_info,Image *image,
       write_info=DestroyImageInfo(write_info);
       ThrowWriterException(ResourceLimitError,"MemoryAllocationFailed");
     }
-  ResetMagickMemory(scanline,0,image->columns*sizeof(*scanline));
+  memset(scanline,0,image->columns*sizeof(*scanline));
   for (y=0; y < (ssize_t) image->rows; y++)
   {
     p=GetVirtualPixels(image,0,y,image->columns,1,exception);

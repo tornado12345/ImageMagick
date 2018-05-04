@@ -1,11 +1,11 @@
 /*
-  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
 
   You may not use this file except in compliance with the License.
   obtain a copy of the License at
 
-    http://www.imagemagick.org/script/license.php
+    https://www.imagemagick.org/script/license.php
 
   Unless required by applicable law or agreed to in writing, software
   distributed under the License is distributed on an "AS IS" BASIS,
@@ -36,9 +36,6 @@ extern "C" {
 # if defined(MAGICKCORE__FILE_OFFSET_BITS) && !defined(_FILE_OFFSET_BITS)
 # define _FILE_OFFSET_BITS MAGICKCORE__FILE_OFFSET_BITS
 #endif
-#if __cplusplus > 199711L
-#define register
-#endif  
 #if defined(_magickcore_const) && !defined(const)
 # define const  _magickcore_const
 #endif
@@ -101,7 +98,9 @@ extern "C" {
 #endif
 #if defined(MAGICKCORE_WINDOWS_SUPPORT)
 # include <io.h>
+#if !defined(__CYGWIN__)
 # include <direct.h>
+#endif
 # if !defined(MAGICKCORE_HAVE_STRERROR)
 #  define HAVE_STRERROR
 # endif
@@ -339,6 +338,7 @@ extern int vsnprintf(char *,size_t,const char *,va_list);
 /*
   Magick defines.
 */
+#define MagickMaxRecursionDepth  600
 #define Swap(x,y) ((x)^=(y), (y)^=(x), (x)^=(y))
 #if defined(_MSC_VER)
 # define DisableMSCWarning(nr) __pragma(warning(push)) \

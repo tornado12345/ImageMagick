@@ -17,13 +17,13 @@
 %                                 April 2014                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://www.imagemagick.org/script/license.php                           %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -165,13 +165,13 @@ static Image *ReadSCREENSHOTImage(const ImageInfo *image_info,
       screen->columns=(size_t) GetDeviceCaps(hDC,HORZRES);
       screen->rows=(size_t) GetDeviceCaps(hDC,VERTRES);
       screen->storage_class=DirectClass;
-      status=SetImageExtent(screen,screen->columns,screen->rows,exception);
-      if (status == MagickFalse)
-        return(DestroyImageList(image));
       if (image == (Image *) NULL)
         image=screen;
       else
         AppendImageToList(&image,screen);
+      status=SetImageExtent(screen,screen->columns,screen->rows,exception);
+      if (status == MagickFalse)
+        return(DestroyImageList(image));
 
       bitmapDC=CreateCompatibleDC(hDC);
       if (bitmapDC == (HDC) NULL)
@@ -179,7 +179,7 @@ static Image *ReadSCREENSHOTImage(const ImageInfo *image_info,
           DeleteDC(hDC);
           ThrowReaderException(CoderError,"UnableToCreateDC");
         }
-      (void) ResetMagickMemory(&bmi,0,sizeof(BITMAPINFO));
+      (void) memset(&bmi,0,sizeof(BITMAPINFO));
       bmi.bmiHeader.biSize=sizeof(BITMAPINFOHEADER);
       bmi.bmiHeader.biWidth=(LONG) screen->columns;
       bmi.bmiHeader.biHeight=(-1)*(LONG) screen->rows;

@@ -17,13 +17,13 @@
 %                              January 1993                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://www.imagemagick.org/script/license.php                           %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -45,6 +45,7 @@
 #include "MagickCore/exception-private.h"
 #include "MagickCore/image.h"
 #include "MagickCore/memory_.h"
+#include "MagickCore/memory-private.h"
 #include "MagickCore/string_.h"
 #include "MagickCore/string-private.h"
 #include "MagickCore/token.h"
@@ -96,9 +97,7 @@ MagickExport TokenInfo *AcquireTokenInfo(void)
   TokenInfo
     *token_info;
 
-  token_info=(TokenInfo *) AcquireMagickMemory(sizeof(*token_info));
-  if (token_info == (TokenInfo *) NULL)
-    ThrowFatalException(ResourceLimitFatalError,"MemoryAllocationFailed");
+  token_info=(TokenInfo *) AcquireCriticalMemory(sizeof(*token_info));
   token_info->signature=MagickCoreSignature;
   return(token_info);
 }
@@ -181,9 +180,13 @@ MagickExport void GetNextToken(const char *start,const char **end,
   register ssize_t
     i;
 
+  size_t
+    length;
+
   assert(start != (const char *) NULL);
   assert(token != (char *) NULL);
   i=0;
+  length=strlen(start);
   p=start;
   while ((isspace((int) ((unsigned char) *p)) != 0) && (*p != '\0'))
     p++;
@@ -219,16 +222,22 @@ MagickExport void GetNextToken(const char *start,const char **end,
             }
         if (i < (ssize_t) (extent-1))
           token[i++]=(*p);
+        if ((size_t) (p-start) >= length)
+          break;
       }
       break;
     }
     case '/':
     {
       if (i < (ssize_t) (extent-1))
-        token[i++]=(*p++);
+        token[i++]=(*p);
+      p++;
       if ((*p == '>') || (*p == '/'))
-        if (i < (ssize_t) (extent-1))
-          token[i++]=(*p++);
+        {
+          if (i < (ssize_t) (extent-1))
+            token[i++]=(*p);
+          p++;
+        }
       break;
     }
     default:
@@ -241,18 +250,26 @@ MagickExport void GetNextToken(const char *start,const char **end,
       if ((p != q) && (*p != ','))
         {
           for ( ; (p < q) && (*p != ','); p++)
+          {
             if (i < (ssize_t) (extent-1))
               token[i++]=(*p);
+            if ((size_t) (p-start) >= length)
+              break;
+          }
           if (*p == '%')
-            if (i < (ssize_t) (extent-1))
-              token[i++]=(*p++);
+            {
+              if (i < (ssize_t) (extent-1))
+                token[i++]=(*p);
+              p++;
+            }
           break;
         }
       if ((*p != '\0') && (isalpha((int) ((unsigned char) *p)) == 0) &&
           (*p != *DirectorySeparator) && (*p != '#') && (*p != '<'))
         {
           if (i < (ssize_t) (extent-1))
-            token[i++]=(*p++);
+            token[i++]=(*p);
+          p++;
           break;
         }
       for ( ; *p != '\0'; p++)
@@ -273,13 +290,17 @@ MagickExport void GetNextToken(const char *start,const char **end,
               token[i++]=(*p);
             if ((*p == ')') && (*(p-1) != '\\'))
               break;
+            if ((size_t) (p-start) >= length)
+              break;
           }
+        if ((size_t) (p-start) >= length)
+          break;
       }
       break;
     }
   }
   token[i]='\0';
-  if (LocaleNCompare(token,"url(",4) == 0)
+  if ((LocaleNCompare(token,"url(",4) == 0) && (strlen(token) > 5))
     {
       ssize_t
         offset;
@@ -288,8 +309,11 @@ MagickExport void GetNextToken(const char *start,const char **end,
       if (token[offset] == '#')
         offset++;
       i=(ssize_t) strlen(token);
-      (void) CopyMagickString(token,token+offset,MagickPathExtent);
-      token[i-offset-1]='\0';
+      if (i > offset)
+        {
+          (void) CopyMagickString(token,token+offset,MagickPathExtent);
+          token[i-offset-1]='\0';
+        }
     }
   while (isspace((int) ((unsigned char) *p)) != 0)
     p++;
@@ -385,7 +409,8 @@ MagickExport MagickBooleanType GlobExpression(const char *expression,
           status;
 
         status=MagickFalse;
-        pattern+=GetUTFOctets(pattern);
+        while (GetUTFCode(pattern) == '*')
+          pattern+=GetUTFOctets(pattern);
         while ((GetUTFCode(expression) != 0) && (status == MagickFalse))
         {
           status=GlobExpression(expression,pattern,case_insensitive);

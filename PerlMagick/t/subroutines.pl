@@ -1,4 +1,4 @@
-#  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization
+#  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization
 #  dedicated to making software imaging solutions freely available.
 #
 #  You may not use this file except in compliance with the License.  You may
@@ -1050,7 +1050,7 @@ sub testMontage {
       } else {
         # Check montage directory
         my $directory = $montage->Get('directory');
-        my $expected = join( "\n", @colors ) . "\n";
+        my $expected = join( "\xff", @colors ) . "\xff";
         if ( !defined($directory) ) {
           print "ok $test\n";
         } elsif ( $directory  ne $expected) {
