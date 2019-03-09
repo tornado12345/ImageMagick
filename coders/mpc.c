@@ -17,13 +17,13 @@
 %                                 March 2000                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -179,6 +179,7 @@ static Image *ReadMPCImage(const ImageInfo *image_info,ExceptionInfo *exception)
 
   size_t
     depth,
+    extent,
     length;
 
   ssize_t
@@ -782,13 +783,14 @@ static Image *ReadMPCImage(const ImageInfo *image_info,ExceptionInfo *exception)
     /*
       Verify that required image information is defined.
     */
-    if ((LocaleCompare(id,"MagickCache") != 0) || (image->depth > 128) ||
+    if ((LocaleCompare(id,"MagickCache") != 0) ||
         (image->storage_class == UndefinedClass) ||
         (image->compression == UndefinedCompression) ||
         (image->columns == 0) || (image->rows == 0) ||
         (image->number_channels > MaxPixelChannels) ||
         (image->number_meta_channels > (MaxPixelChannels-8)) ||
-        ((image->number_channels+image->number_meta_channels) >= MaxPixelChannels))
+        ((image->number_channels+image->number_meta_channels) >= MaxPixelChannels) ||
+        (image->depth == 0) || (image->depth > 64))
       {
         if (profiles != (LinkedListInfo *) NULL)
           profiles=DestroyLinkedList(profiles,RelinquishMagickMemory);
@@ -808,20 +810,21 @@ static Image *ReadMPCImage(const ImageInfo *image_info,ExceptionInfo *exception)
         /*
           Image directory.
         */
-        length=MagickPathExtent;
+        extent=MagickPathExtent;
         image->directory=AcquireString((char *) NULL);
         p=image->directory;
+        length=0;
         do
         {
           *p='\0';
-          if ((strlen(image->directory)+MagickPathExtent) >= length)
+          if ((length+MagickPathExtent) >= extent)
             {
               /*
                 Allocate more memory for the image directory.
               */
-              length<<=1;
+              extent<<=1;
               image->directory=(char *) ResizeQuantumMemory(image->directory,
-                length+MagickPathExtent,sizeof(*image->directory));
+                extent+MagickPathExtent,sizeof(*image->directory));
               if (image->directory == (char *) NULL)
                 {
                   if (profiles != (LinkedListInfo *) NULL)
@@ -829,12 +832,13 @@ static Image *ReadMPCImage(const ImageInfo *image_info,ExceptionInfo *exception)
                   ThrowReaderException(CorruptImageError,
                     "UnableToReadImageData");
                 }
-              p=image->directory+strlen(image->directory);
+              p=image->directory+length;
             }
           c=ReadBlobByte(image);
           if (c == EOF)
             break;
           *p++=(char) c;
+          length++;
         } while (c != (int) '\0');
       }
     if (profiles != (LinkedListInfo *) NULL)
@@ -1011,8 +1015,8 @@ static Image *ReadMPCImage(const ImageInfo *image_info,ExceptionInfo *exception)
         AcquireNextImage(image_info,image,exception);
         if (GetNextImageInList(image) == (Image *) NULL)
           {
-            image=DestroyImageList(image);
-            return((Image *) NULL);
+            status=MagickFalse;
+            break;
           }
         image=SyncNextImageInList(image);
         status=SetImageProgress(image,LoadImagesTag,TellBlob(image),
@@ -1022,6 +1026,8 @@ static Image *ReadMPCImage(const ImageInfo *image_info,ExceptionInfo *exception)
       }
   } while (c != EOF);
   (void) CloseBlob(image);
+  if (status == MagickFalse)
+    return(DestroyImageList(image));
   return(GetFirstImageInList(image));
 }
 
@@ -1468,7 +1474,11 @@ static MagickBooleanType WriteMPCImage(const ImageInfo *image_info,Image *image,
           switch (depth)
           {
             default:
+            {
+              colormap=(unsigned char *) RelinquishMagickMemory(colormap);
               ThrowWriterException(CorruptImageError,"ImageDepthNotSupported");
+              break;
+            }
             case 32:
             {
               unsigned int

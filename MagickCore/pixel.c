@@ -16,13 +16,13 @@
 %                               October 1998                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -4368,10 +4368,13 @@ MagickExport void InitializePixelChannelMap(Image *image)
     SetPixelChannelAttributes(image,AlphaPixelChannel,CopyPixelTrait,n++);
   if (image->storage_class == PseudoClass)
     SetPixelChannelAttributes(image,IndexPixelChannel,CopyPixelTrait,n++);
-  if (image->read_mask != MagickFalse)
+  if ((image->channels & ReadMaskChannel) != 0)
     SetPixelChannelAttributes(image,ReadMaskPixelChannel,CopyPixelTrait,n++);
-  if (image->write_mask != MagickFalse)
+  if ((image->channels & WriteMaskChannel) != 0)
     SetPixelChannelAttributes(image,WriteMaskPixelChannel,CopyPixelTrait,n++);
+  if ((image->channels & CompositeMaskChannel) != 0)
+    SetPixelChannelAttributes(image,CompositeMaskPixelChannel,CopyPixelTrait,
+      n++);
   image->number_channels=(size_t) n;
   (void) SetPixelChannelMask(image,image->channel_mask);
 }
@@ -6034,7 +6037,7 @@ MagickExport MagickBooleanType IsFuzzyEquivalencePixel(const Image *source,
 %  For example for an RGB:
 %    color_distance^2  = ( (u.r-v.r)^2 + (u.g-v.g)^2 + (u.b-v.b)^2 ) / 3
 %
-%  See http://www.imagemagick.org/Usage/bugs/fuzz_distance/
+%  See http://imagemagick.org/Usage/bugs/fuzz_distance/
 %
 %  Hue colorspace distances need more work.  Hue is not a distance, it is an
 %  angle!
@@ -6236,6 +6239,11 @@ static void LogPixelChannels(const Image *image)
         name="write-mask";
         break;
       }
+      case CompositeMaskPixelChannel:
+      {
+        name="composite-mask";
+        break;
+      }
       case MetaPixelChannel:
       {
         name="meta";
@@ -6311,10 +6319,12 @@ MagickExport ChannelType SetPixelChannelMask(Image *image,
   }
   if (image->storage_class == PseudoClass)
     SetPixelChannelTraits(image,IndexPixelChannel,CopyPixelTrait);
-  if (image->read_mask != MagickFalse)
+  if ((image->channels & ReadMaskChannel) != 0)
     SetPixelChannelTraits(image,ReadMaskPixelChannel,CopyPixelTrait);
-  if (image->write_mask != MagickFalse)
+  if ((image->channels & WriteMaskChannel) != 0)
     SetPixelChannelTraits(image,WriteMaskPixelChannel,CopyPixelTrait);
+  if ((image->channels & CompositeMaskChannel) != 0)
+    SetPixelChannelTraits(image,CompositeMaskPixelChannel,CopyPixelTrait);
   if (image->debug != MagickFalse)
     LogPixelChannels(image);
   return(mask);

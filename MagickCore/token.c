@@ -17,13 +17,13 @@
 %                              January 1993                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -44,6 +44,7 @@
 #include "MagickCore/exception.h"
 #include "MagickCore/exception-private.h"
 #include "MagickCore/image.h"
+#include "MagickCore/image-private.h"
 #include "MagickCore/memory_.h"
 #include "MagickCore/memory-private.h"
 #include "MagickCore/string_.h"
@@ -174,19 +175,18 @@ MagickExport void GetNextToken(const char *start,const char **end,
   double
     value;
 
+  register char
+    *q;
+
   register const char
     *p;
 
   register ssize_t
     i;
 
-  size_t
-    length;
-
   assert(start != (const char *) NULL);
   assert(token != (char *) NULL);
   i=0;
-  length=strlen(start);
   p=start;
   while ((isspace((int) ((unsigned char) *p)) != 0) && (*p != '\0'))
     p++;
@@ -222,7 +222,7 @@ MagickExport void GetNextToken(const char *start,const char **end,
             }
         if (i < (ssize_t) (extent-1))
           token[i++]=(*p);
-        if ((size_t) (p-start) >= length)
+        if ((size_t) (p-start) >= (extent-1))
           break;
       }
       break;
@@ -253,7 +253,7 @@ MagickExport void GetNextToken(const char *start,const char **end,
           {
             if (i < (ssize_t) (extent-1))
               token[i++]=(*p);
-            if ((size_t) (p-start) >= length)
+            if ((size_t) (p-start) >= (extent-1))
               break;
           }
           if (*p == '%')
@@ -284,36 +284,31 @@ MagickExport void GetNextToken(const char *start,const char **end,
         if (*p == '>')
           break;
         if (*p == '(')
-          for (p++; *p != '\0'; p++)
           {
-            if (i < (ssize_t) (extent-1))
-              token[i++]=(*p);
-            if ((*p == ')') && (*(p-1) != '\\'))
-              break;
-            if ((size_t) (p-start) >= length)
+            for (p++; *p != '\0'; p++)
+            {
+              if (i < (ssize_t) (extent-1))
+                token[i++]=(*p);
+              if ((*p == ')') && (*(p-1) != '\\'))
+                break;
+              if ((size_t) (p-start) >= (extent-1))
+                break;
+            }
+            if (*p == '\0')
               break;
           }
-        if ((size_t) (p-start) >= length)
+        if ((size_t) (p-start) >= (extent-1))
           break;
       }
       break;
     }
   }
   token[i]='\0';
-  if ((LocaleNCompare(token,"url(",4) == 0) && (strlen(token) > 5))
+  q=strrchr(token,')');
+  if ((LocaleNCompare(token,"url(#",5) == 0) && (q != (char *) NULL))
     {
-      ssize_t
-        offset;
-
-      offset=4;
-      if (token[offset] == '#')
-        offset++;
-      i=(ssize_t) strlen(token);
-      if (i > offset)
-        {
-          (void) CopyMagickString(token,token+offset,MagickPathExtent);
-          token[i-offset-1]='\0';
-        }
+      *q='\0';
+      (void) memmove(token,token+5,(size_t) (q-token-4));
     }
   while (isspace((int) ((unsigned char) *p)) != 0)
     p++;
@@ -504,62 +499,36 @@ MagickExport MagickBooleanType GlobExpression(const char *expression,
       }
       case '{':
       {
-        pattern+=GetUTFOctets(pattern);
+        char
+          *target;
+
+        register char
+          *p;
+
+        target=AcquireString(pattern);
+        p=target;
+        pattern++;
         while ((GetUTFCode(pattern) != '}') && (GetUTFCode(pattern) != 0))
         {
-          p=expression;
-          match=MagickTrue;
-          while ((GetUTFCode(p) != 0) && (GetUTFCode(pattern) != 0) &&
-                 (GetUTFCode(pattern) != ',') && (GetUTFCode(pattern) != '}') &&
-                 (match != MagickFalse))
-          {
-            if (GetUTFCode(pattern) == '\\')
+          *p++=(*pattern++);
+          if ((GetUTFCode(pattern) == ',') || (GetUTFCode(pattern) == '}'))
+            {
+              *p='\0';
+              match=GlobExpression(expression,target,case_insensitive);
+              if (match != MagickFalse)
+                {
+                  expression+=MagickMin(strlen(expression),strlen(target));
+                  break;
+                }
+              p=target;
               pattern+=GetUTFOctets(pattern);
-            match=(GetUTFCode(pattern) == GetUTFCode(p)) ? MagickTrue :
-              MagickFalse;
-            p+=GetUTFOctets(p);
-            pattern+=GetUTFOctets(pattern);
-          }
-          if (GetUTFCode(pattern) == 0)
-            {
-              match=MagickFalse;
-              done=MagickTrue;
-              break;
             }
-          if (match != MagickFalse)
-            {
-              expression=p;
-              while ((GetUTFCode(pattern) != '}') &&
-                     (GetUTFCode(pattern) != 0))
-              {
-                pattern+=GetUTFOctets(pattern);
-                if (GetUTFCode(pattern) == '\\')
-                  {
-                    pattern+=GetUTFOctets(pattern);
-                    if (GetUTFCode(pattern) == '}')
-                      pattern+=GetUTFOctets(pattern);
-                  }
-              }
-            }
-          else
-            {
-              while ((GetUTFCode(pattern) != '}') &&
-                     (GetUTFCode(pattern) != ',') &&
-                     (GetUTFCode(pattern) != 0))
-              {
-                pattern+=GetUTFOctets(pattern);
-                if (GetUTFCode(pattern) == '\\')
-                  {
-                    pattern+=GetUTFOctets(pattern);
-                    if ((GetUTFCode(pattern) == '}') ||
-                        (GetUTFCode(pattern) == ','))
-                      pattern+=GetUTFOctets(pattern);
-                  }
-              }
-            }
-            if (GetUTFCode(pattern) != 0)
-              pattern+=GetUTFOctets(pattern);
-          }
+        }
+        while ((GetUTFCode(pattern) != '}') && (GetUTFCode(pattern) != 0))
+          pattern+=GetUTFOctets(pattern);
+        if (GetUTFCode(pattern) != 0)
+          pattern+=GetUTFOctets(pattern);
+        target=DestroyString(target);
         break;
       }
       case '\\':
@@ -572,8 +541,7 @@ MagickExport MagickBooleanType GlobExpression(const char *expression,
       {
         if (case_insensitive != MagickFalse)
           {
-            if (tolower((int) GetUTFCode(expression)) !=
-                tolower((int) GetUTFCode(pattern)))
+            if (LocaleLowercase((int) GetUTFCode(expression)) != LocaleLowercase((int) GetUTFCode(pattern)))
               {
                 done=MagickTrue;
                 break;
@@ -846,12 +814,12 @@ static void StoreToken(TokenInfo *token_info,char *string,
   {
     case 1:
     {
-      string[i]=(char) toupper(c);
+      string[i]=(char) LocaleUppercase(c);
       break;
     }
     case 2:
     {
-      string[i]=(char) tolower(c);
+      string[i]=(char) LocaleLowercase(c);
       break;
     }
     default:

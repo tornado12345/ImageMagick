@@ -17,13 +17,13 @@
 %                                April 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -192,6 +192,7 @@ static MagickBooleanType ConvertUsage(void)
       "-channel mask        set the image channel mask",
       "-charcoal radius     simulate a charcoal drawing",
       "-chop geometry       remove pixels from the image interior",
+      "-clahe geometry      contrast limited adaptive histogram equalization",
       "-clamp               keep pixel values in range (0-QuantumRange)",
       "-colorize value      colorize the image with the fill color",
       "-color-matrix matrix apply color correction to the image",
@@ -275,6 +276,8 @@ static MagickBooleanType ConvertUsage(void)
       "-raise value         lighten/darken image edges to create a 3-D effect",
       "-random-threshold low,high",
       "                     random threshold the image",
+      "-range-threshold values",
+      "                     perform either hard or soft thresholding within some range of values in an image",
       "-region geometry     apply options to a portion of the image",
       "-render              render vector graphics",
       "-resample geometry   change the resolution of an image",
@@ -756,7 +759,7 @@ WandExport MagickBooleanType ConvertImageCommand(ImageInfo *image_info,
           {
             ssize_t
               method;
-            
+
             if (*option == '+')
               break;
             i++;
@@ -988,6 +991,17 @@ WandExport MagickBooleanType ConvertImageCommand(ImageInfo *image_info,
               ThrowConvertInvalidArgumentException(option,argv[i]);
             break;
           }
+        if (LocaleCompare("clahe",option+1) == 0)
+          {
+            if (*option == '+')
+              break;
+            i++;
+            if (i == (ssize_t) argc)
+              ThrowConvertException(OptionError,"MissingArgument",option);
+            if (IsGeometry(argv[i]) == MagickFalse)
+              ThrowConvertInvalidArgumentException(option,argv[i]);
+            break;
+          }
         if (LocaleCompare("clamp",option+1) == 0)
           break;
         if (LocaleCompare("clip",option+1) == 0)
@@ -1013,7 +1027,7 @@ WandExport MagickBooleanType ConvertImageCommand(ImageInfo *image_info,
             Image
               *clone_images,
               *clone_list;
-            
+
             clone_list=CloneImageList(image,exception);
             if (k != 0)
               clone_list=CloneImageList(image_stack[k-1].image,exception);
@@ -1023,7 +1037,7 @@ WandExport MagickBooleanType ConvertImageCommand(ImageInfo *image_info,
             if (*option == '+')
               clone_images=CloneImages(clone_list,"-1",exception);
             else
-              { 
+              {
                 i++;
                 if (i == (ssize_t) argc)
                   ThrowConvertException(OptionError,"MissingArgument",option);
@@ -2074,7 +2088,7 @@ WandExport MagickBooleanType ConvertImageCommand(ImageInfo *image_info,
             status=MogrifyImageInfo(image_info,(int) (i-j+1),(const char **)
               argv+j,exception);
             DestroyConvert();
-            return(status == 0 ? MagickTrue : MagickFalse);
+            return(status == 0 ? MagickFalse : MagickTrue);
           }
         if (LocaleCompare("local-contrast",option+1) == 0)
           {
@@ -2522,6 +2536,17 @@ WandExport MagickBooleanType ConvertImageCommand(ImageInfo *image_info,
             break;
           }
         if (LocaleCompare("random-threshold",option+1) == 0)
+          {
+            if (*option == '+')
+              break;
+            i++;
+            if (i == (ssize_t) argc)
+              ThrowConvertException(OptionError,"MissingArgument",option);
+            if (IsGeometry(argv[i]) == MagickFalse)
+              ThrowConvertInvalidArgumentException(option,argv[i]);
+            break;
+          }
+        if (LocaleCompare("range-threshold",option+1) == 0)
           {
             if (*option == '+')
               break;

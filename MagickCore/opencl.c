@@ -17,13 +17,13 @@
 %                                 March 2000                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -723,7 +723,7 @@ MagickPrivate cl_kernel AcquireOpenCLKernel(MagickCLDevice device,
 %                                                                             %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-%  AutoSelectOpenCLDevices() determines the best device based on the 
+%  AutoSelectOpenCLDevices() determines the best device based on the
 %  information from the micro-benchmark.
 %
 %  The format of the AutoSelectOpenCLDevices method is:
@@ -1072,7 +1072,7 @@ static double RunOpenCLBenchmark(MagickBooleanType is_cpu)
     resizedImage=ResizeImage(unsharpedImage,640,480,LanczosFilter,
       exception);
 
-    /* 
+    /*
       We need this to get a proper performance benchmark, the operations
       are executed asynchronous.
     */
@@ -2319,7 +2319,7 @@ static void LoadOpenCLDevices(MagickCLEnv clEnv)
     if (platforms[i] == (cl_platform_id) NULL)
       continue;
 
-    status=clEnv->library->clGetDeviceIDs(platforms[i],CL_DEVICE_TYPE_CPU | 
+    status=clEnv->library->clGetDeviceIDs(platforms[i],CL_DEVICE_TYPE_CPU |
       CL_DEVICE_TYPE_GPU,(cl_uint) clEnv->number_devices,devices,&number_devices);
     if (status != CL_SUCCESS)
       continue;
@@ -2415,7 +2415,7 @@ MagickPrivate MagickBooleanType InitializeOpenCL(MagickCLEnv clEnv,
   for (i=0; i < (ssize_t) clEnv->number_devices; i++)
   {
     if (strncmp(clEnv->devices[i]->platform_name,"NVIDIA",6) == 0)
-        clEnv->enabled=MagickFalse;
+      clEnv->devices[i]->enabled=MagickFalse;
   }
   UnlockSemaphoreInfo(clEnv->lock);
   return(HasOpenCLDevices(clEnv,exception));
@@ -2723,8 +2723,8 @@ MagickPrivate MagickBooleanType RecordProfileData(MagickCLDevice device,
       name=DestroyString(name);
       return(MagickTrue);
     }
-  start/=1000; // usecs
-  end/=1000;   // usecs
+  start/=1000; /* usecs */
+  end/=1000;   
   elapsed=end-start;
   LockSemaphoreInfo(device->lock);
   i=0;
@@ -2891,14 +2891,14 @@ static void CL_API_CALL DestroyMagickCLCacheInfoAndPixels(
   {
     cl_int
       event_status;
-  
+
     cl_uint
       status;
 
     status=openCL_library->clGetEventInfo(info->events[i],
-      CL_EVENT_COMMAND_EXECUTION_STATUS,sizeof(event_status),&event_status, 
+      CL_EVENT_COMMAND_EXECUTION_STATUS,sizeof(event_status),&event_status,
       NULL);
-    if ((status == CL_SUCCESS) && (event_status != CL_COMPLETE))
+    if ((status == CL_SUCCESS) && (event_status > CL_COMPLETE))
       {
         openCL_library->clSetEventCallback(info->events[i],CL_COMPLETE,
           &DestroyMagickCLCacheInfoAndPixels,info);
@@ -3000,7 +3000,8 @@ static MagickCLEnv RelinquishMagickCLEnv(MagickCLEnv clEnv)
         i;
 
       for (i=0; i < clEnv->number_contexts; i++)
-         (void) openCL_library->clReleaseContext(clEnv->contexts[i]);
+        if (clEnv->contexts[i] != (cl_context) NULL)
+          (void) openCL_library->clReleaseContext(clEnv->contexts[i]);
       clEnv->contexts=(cl_context *) RelinquishMagickMemory(clEnv->contexts);
     }
   return((MagickCLEnv) RelinquishMagickMemory(clEnv));

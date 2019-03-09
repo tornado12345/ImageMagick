@@ -18,13 +18,13 @@
 %                             November 1998                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -63,6 +63,7 @@
 #include "MagickCore/memory_.h"
 #include "MagickCore/memory-private.h"
 #include "MagickCore/mime-private.h"
+#include "MagickCore/monitor-private.h"
 #include "MagickCore/module.h"
 #include "MagickCore/module-private.h"
 #include "MagickCore/nt-base-private.h"
@@ -90,6 +91,14 @@
 #include "MagickCore/utility.h"
 #include "MagickCore/utility-private.h"
 #include "MagickCore/xwindow-private.h"
+#if defined(MAGICKCORE_XML_DELEGATE)
+#  if defined(MAGICKCORE_WINDOWS_SUPPORT)
+#    if !defined(__MINGW32__)
+#      include <win32config.h>
+#    endif
+#  endif
+#  include <libxml/parser.h>
+#endif
 
 /*
   Define declarations.
@@ -636,7 +645,7 @@ MagickExport const MagickInfo *GetMagickInfo(const char *name,
       UnlockSemaphoreInfo(magick_semaphore);
     }
   if ((name == (const char *) NULL) || (LocaleCompare(name,"*") == 0))
-    magick_info=(const MagickInfo *) GetRootValueFromSplayTree(magick_list);
+    return((const MagickInfo *) GetRootValueFromSplayTree(magick_list));
   if (magick_info == (const MagickInfo *) NULL)
     magick_info=(const MagickInfo *) GetValueFromSplayTree(magick_list,name);
   return(magick_info);
@@ -1525,6 +1534,7 @@ MagickExport void MagickCoreGenesis(const char *path,
   (void) XComponentGenesis();
 #endif
   (void) RegistryComponentGenesis();
+  (void) MonitorComponentGenesis();
   instantiate_magickcore=MagickTrue;
   UnlockMagickMutex();
 }
@@ -1556,9 +1566,13 @@ MagickExport void MagickCoreTerminus(void)
       UnlockMagickMutex();
       return;
     }
+  MonitorComponentTerminus();
   RegistryComponentTerminus();
 #if defined(MAGICKCORE_X11_DELEGATE)
   XComponentTerminus();
+#endif
+#if defined(MAGICKCORE_XML_DELEGATE)
+  xmlCleanupParser();
 #endif
   AnnotateComponentTerminus();
   MimeComponentTerminus();

@@ -16,13 +16,13 @@
 %                                 June 2000                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -306,7 +306,6 @@ static MagickBooleanType InsertRow(Image *image,unsigned char *p,ssize_t y,
               SetPixelIndex(image,index,q);
               if (index < image->colors)
                 SetPixelViaPixelInfo(image,image->colormap+(ssize_t) index,q);
-              SetPixelViaPixelInfo(image,image->colormap+(ssize_t) index,q);
               q+=GetPixelChannels(image);
             }
             p++;
@@ -792,20 +791,39 @@ static Image *ExtractPostscript(Image *image,const ImageInfo *image_info,
     goto FINISH;
 
   /* Copy postscript to temporary file */
-  (void) SeekBlob(image,PS_Offset,SEEK_SET);
+  if (SeekBlob(image,PS_Offset,SEEK_SET) != PS_Offset)
+    {
+      (void) fclose(ps_file);
+      ThrowException(exception,CorruptImageError,"ImproperImageHeader",
+        image->filename);
+      goto FINISH_UNL;
+    }
   count=ReadBlob(image, 2*MagickPathExtent, magick);
   if (count < 1)
     {
-      DestroyImageInfo(clone_info);
-      ThrowReaderException(CorruptImageError,"ImproperImageHeader");
+      (void) fclose(ps_file);
+      ThrowException(exception,CorruptImageError,"ImproperImageHeader",
+        image->filename);
+      goto FINISH_UNL;
     }
 
-  (void) SeekBlob(image,PS_Offset,SEEK_SET);
+  if (SeekBlob(image,PS_Offset,SEEK_SET) != PS_Offset)
+    {
+      (void) fclose(ps_file);
+      ThrowException(exception,CorruptImageError,"ImproperImageHeader",
+        image->filename);
+      goto FINISH_UNL;
+    }
   while (PS_Size-- > 0)
   {
     c=ReadBlobByte(image);
     if (c == EOF)
-      break;
+      {      
+        (void) fclose(ps_file);
+        ThrowException(exception,CorruptImageError,"ImproperImageHeader",
+          image->filename);
+        goto FINISH_UNL;
+      }
     (void) fputc(c,ps_file);
   }
   (void) fclose(ps_file);
@@ -815,13 +833,14 @@ static Image *ExtractPostscript(Image *image,const ImageInfo *image_info,
   if(magic_info == (const MagicInfo *) NULL) goto FINISH_UNL;
   /*     printf("Detected:%s  \n",magic_info->name); */
   if(exception->severity != UndefinedException) goto FINISH_UNL;
-  if(magic_info->name == (char *) NULL) goto FINISH_UNL;
-  if (LocaleCompare(magic_info->name,"WPG") == 0)
-    goto FINISH_UNL;
-
-  (void) strncpy(clone_info->magick,magic_info->name,MagickPathExtent-1);
-  if (LocaleCompare(image_info->magick,clone_info->magick) == 0)
-    (void) strcpy(clone_info->magick,"PS");
+  (void) strncpy(clone_info->magick,GetMagicName(magic_info),
+    MagickPathExtent-1);
+  if (LocaleCompare(clone_info->magick,"PFB") != 0)
+    {      
+      ThrowException(exception,CorruptImageError,"ImproperImageHeader",
+        image->filename);
+      goto FINISH_UNL;
+    }
 
     /* Read nested image */
   /*FormatString(clone_info->filename,"%s:%s",magic_info->name,postscript_file);*/
@@ -1082,6 +1101,7 @@ static Image *ReadWPGImage(const ImageInfo *image_info,
   image->columns = 1;
   image->rows = 1;
   image->colors = 0;
+  image->storage_class=DirectClass;
   (void) ResetImagePixels(image,exception);
   bpp=0;
   BitmapHeader2.RotAngle=0;
@@ -1092,7 +1112,8 @@ static Image *ReadWPGImage(const ImageInfo *image_info,
     case 1:     /* WPG level 1 */
       while(!EOFBlob(image)) /* object parser loop */
         {
-          (void) SeekBlob(image,Header.DataOffset,SEEK_SET);
+          if (SeekBlob(image,Header.DataOffset,SEEK_SET) != Header.DataOffset)
+            break;
           if(EOFBlob(image))
             break;
 
@@ -1139,7 +1160,7 @@ static Image *ReadWPGImage(const ImageInfo *image_info,
               if (WPG_Palette.StartIndex > WPG_Palette.NumOfEntries)
                 ThrowReaderException(CorruptImageError,"InvalidColormapIndex");
               image->colors=WPG_Palette.NumOfEntries;
-              if (!AcquireImageColormap(image,image->colors,exception))
+              if (AcquireImageColormap(image,image->colors,exception) == MagickFalse)
                 goto NoMemory;
               for (i=WPG_Palette.StartIndex;
                    i < (int)WPG_Palette.NumOfEntries; i++)
@@ -1224,10 +1245,28 @@ static Image *ReadWPGImage(const ImageInfo *image_info,
               else
                 {
                   if (bpp < 24)
-                    if ( (image->colors < (one << bpp)) && (bpp != 24) )
-                      image->colormap=(PixelInfo *) ResizeQuantumMemory(
-                        image->colormap,(size_t) (one << bpp),
-                        sizeof(*image->colormap));
+                  if ( (image->colors < (one << bpp)) && (bpp != 24) )
+                    {
+                      PixelInfo
+                        *colormap;
+
+                      size_t
+                        colors;
+
+                      colormap=image->colormap;
+                      colors=image->colors;
+                      image->colormap=(PixelInfo *) NULL;
+                      if (AcquireImageColormap(image,one << bpp,exception) == MagickFalse)
+                        {
+                          colormap=(PixelInfo *)
+                            RelinquishMagickMemory(colormap);
+                          goto NoMemory;
+                        }
+                      (void) memcpy(image->colormap,colormap,MagickMin(
+                        image->colors,colors)*sizeof(*image->colormap));
+                      colormap=(PixelInfo *)
+                        RelinquishMagickMemory(colormap);
+                    }
                 }
 
               if ((bpp == 1) && (image->colors > 1))
@@ -1324,8 +1363,9 @@ static Image *ReadWPGImage(const ImageInfo *image_info,
       StartWPG.PosSizePrecision = 0;
       while(!EOFBlob(image)) /* object parser loop */
         {
-          (void) SeekBlob(image,Header.DataOffset,SEEK_SET);
-          if(EOFBlob(image))
+          if (SeekBlob(image,Header.DataOffset,SEEK_SET) != Header.DataOffset)
+            break;
+          if (EOFBlob(image))
             break;
 
           Rec2.Class=(i=ReadBlobByte(image));

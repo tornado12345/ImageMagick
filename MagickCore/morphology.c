@@ -17,13 +17,13 @@
 %                               January 2010                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -2720,8 +2720,7 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
             if ((traits == UndefinedPixelTrait) ||
                 (morphology_traits == UndefinedPixelTrait))
               continue;
-            if (((traits & CopyPixelTrait) != 0) ||
-                (GetPixelWriteMask(image,p+center) <= (QuantumRange/2)))
+            if ((traits & CopyPixelTrait) != 0)
               {
                 SetPixelChannel(morphology_image,channel,p[center+i],q);
                 continue;
@@ -2775,10 +2774,10 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
               proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-            #pragma omp critical (MagickCore_MorphologyPrimitive)
+            #pragma omp atomic
 #endif
-            proceed=SetImageProgress(image,MorphologyTag,progress++,
-              image->rows);
+            progress++;
+            proceed=SetImageProgress(image,MorphologyTag,progress,image->rows);
             if (proceed == MagickFalse)
               status=MagickFalse;
           }
@@ -2871,8 +2870,7 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
         if ((traits == UndefinedPixelTrait) ||
             (morphology_traits == UndefinedPixelTrait))
           continue;
-        if (((traits & CopyPixelTrait) != 0) ||
-            (GetPixelWriteMask(image,p+center) <= (QuantumRange/2)))
+        if ((traits & CopyPixelTrait) != 0)
           {
             SetPixelChannel(morphology_image,channel,p[center+i],q);
             continue;
@@ -2882,11 +2880,21 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
         minimum=(double) QuantumRange;
         switch (method)
         {
-          case ConvolveMorphology: pixel=bias; break;
+          case ConvolveMorphology:
+          {
+            pixel=bias;
+            break;
+          }
           case DilateMorphology:
           case ErodeIntensityMorphology:
           {
             pixel=0.0;
+            break;
+          }
+          case HitAndMissMorphology:
+          case ErodeMorphology:
+          {
+            pixel=QuantumRange;
             break;
           }
           default:
@@ -3195,9 +3203,10 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-        #pragma omp critical (MagickCore_MorphologyPrimitive)
+        #pragma omp atomic
 #endif
-        proceed=SetImageProgress(image,MorphologyTag,progress++,image->rows);
+        progress++;
+        proceed=SetImageProgress(image,MorphologyTag,progress,image->rows);
         if (proceed == MagickFalse)
           status=MagickFalse;
       }
@@ -3292,9 +3301,6 @@ static ssize_t MorphologyPrimitiveDirect(Image *image,
     register ssize_t
       x;
 
-    ssize_t
-      center;
-
     /*
       Read virtual pixels, and authentic pixels, from the same image!  We read
       using virtual to get virtual pixel handling, but write back into the same
@@ -3314,8 +3320,6 @@ static ssize_t MorphologyPrimitiveDirect(Image *image,
         status=MagickFalse;
         continue;
       }
-    center=(ssize_t) (GetPixelChannels(image)*width*offset.y+
-      GetPixelChannels(image)*offset.x);
     for (x=0; x < (ssize_t) image->columns; x++)
     {
       register ssize_t
@@ -3348,8 +3352,7 @@ static ssize_t MorphologyPrimitiveDirect(Image *image,
         traits=GetPixelChannelTraits(image,channel);
         if (traits == UndefinedPixelTrait)
           continue;
-        if (((traits & CopyPixelTrait) != 0) ||
-            (GetPixelWriteMask(image,p+center) <= (QuantumRange/2)))
+        if ((traits & CopyPixelTrait) != 0)
           continue;
         pixels=p;
         pixel=(double) QuantumRange;
@@ -3434,7 +3437,11 @@ static ssize_t MorphologyPrimitiveDirect(Image *image,
         MagickBooleanType
           proceed;
 
-        proceed=SetImageProgress(image,MorphologyTag,progress++,2*image->rows);
+#if defined(MAGICKCORE_OPENMP_SUPPORT)
+        #pragma omp atomic
+#endif
+        progress++;
+        proceed=SetImageProgress(image,MorphologyTag,progress,2*image->rows);
         if (proceed == MagickFalse)
           status=MagickFalse;
       }
@@ -3457,9 +3464,6 @@ static ssize_t MorphologyPrimitiveDirect(Image *image,
     register ssize_t
       x;
 
-    ssize_t
-      center;
-
     /*
        Read virtual pixels, and authentic pixels, from the same image.  We
        read using virtual to get virtual pixel handling, but write back
@@ -3480,7 +3484,6 @@ static ssize_t MorphologyPrimitiveDirect(Image *image,
       }
     p+=(image->columns-1)*GetPixelChannels(image);
     q+=(image->columns-1)*GetPixelChannels(image);
-    center=(ssize_t) (offset.x*GetPixelChannels(image));
     for (x=(ssize_t) image->columns-1; x >= 0; x--)
     {
       register ssize_t
@@ -3513,8 +3516,7 @@ static ssize_t MorphologyPrimitiveDirect(Image *image,
         traits=GetPixelChannelTraits(image,channel);
         if (traits == UndefinedPixelTrait)
           continue;
-        if (((traits & CopyPixelTrait) != 0) ||
-            (GetPixelWriteMask(image,p+center) <= (QuantumRange/2)))
+        if ((traits & CopyPixelTrait) != 0)
           continue;
         pixels=p;
         pixel=(double) QuantumRange;
@@ -3599,7 +3601,11 @@ static ssize_t MorphologyPrimitiveDirect(Image *image,
         MagickBooleanType
           proceed;
 
-        proceed=SetImageProgress(image,MorphologyTag,progress++,2*image->rows);
+#if defined(MAGICKCORE_OPENMP_SUPPORT)
+        #pragma omp atomic
+#endif
+        progress++;
+        proceed=SetImageProgress(image,MorphologyTag,progress,2*image->rows);
         if (proceed == MagickFalse)
           status=MagickFalse;
       }

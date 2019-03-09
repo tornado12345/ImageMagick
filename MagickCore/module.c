@@ -17,13 +17,13 @@
 %                                March 2000                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -959,6 +959,14 @@ MagickExport MagickBooleanType InvokeDynamicImageFilter(const char *tag,
   if ((*images)->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",
       (*images)->filename);
+  rights=ReadPolicyRights;
+  if (IsRightsAuthorized(FilterPolicyDomain,rights,tag) == MagickFalse)
+    {
+      errno=EPERM;
+      (void) ThrowMagickException(exception,GetMagickModule(),PolicyError,
+        "NotAuthorized","`%s'",tag);
+      return(MagickFalse);
+    }
 #if !defined(MAGICKCORE_BUILD_MODULES)
   {
     MagickBooleanType
@@ -969,14 +977,6 @@ MagickExport MagickBooleanType InvokeDynamicImageFilter(const char *tag,
       return(status);
   }
 #endif
-  rights=ReadPolicyRights;
-  if (IsRightsAuthorized(FilterPolicyDomain,rights,tag) == MagickFalse)
-    {
-      errno=EPERM;
-      (void) ThrowMagickException(exception,GetMagickModule(),PolicyError,
-        "NotAuthorized","`%s'",tag);
-      return(MagickFalse);
-    }
   TagToFilterModuleName(tag,name);
   status=GetMagickModulePath(name,MagickImageFilterModule,path,exception);
   if (status == MagickFalse)
@@ -1234,6 +1234,9 @@ MagickPrivate MagickBooleanType OpenModule(const char *module,
   ModuleInfo
     *module_info;
 
+  PolicyRights
+    rights;
+
   register const CoderInfo
     *p;
 
@@ -1247,6 +1250,14 @@ MagickPrivate MagickBooleanType OpenModule(const char *module,
   module_info=(ModuleInfo *) GetModuleInfo(module,exception);
   if (module_info != (ModuleInfo *) NULL)
     return(MagickTrue);
+  rights=ReadPolicyRights;
+  if (IsRightsAuthorized(ModulePolicyDomain,rights,module) == MagickFalse)
+    {
+      errno=EPERM;
+      (void) ThrowMagickException(exception,GetMagickModule(),PolicyError,
+        "NotAuthorized","`%s'",module);
+      return(MagickFalse);
+    }
   (void) CopyMagickString(module_name,module,MagickPathExtent);
   p=GetCoderInfo(module,exception);
   if (p != (CoderInfo *) NULL)

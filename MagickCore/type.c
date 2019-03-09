@@ -17,13 +17,13 @@
 %                                 May 2001                                    %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -726,6 +726,9 @@ MagickExport MagickBooleanType LoadFontConfigFonts(SplayTreeInfo *type_cache,
     extension[MagickPathExtent],
     name[MagickPathExtent];
 
+  FcBool
+    result;
+
   FcChar8
     *family,
     *file,
@@ -762,9 +765,13 @@ MagickExport MagickBooleanType LoadFontConfigFonts(SplayTreeInfo *type_cache,
     Load system fonts.
   */
   (void) exception;
-  font_config=FcInitLoadConfigAndFonts();
+  result=FcInit();
+  if (result == 0)
+    return(MagickFalse);
+  font_config=FcConfigGetCurrent();
   if (font_config == (FcConfig *) NULL)
     return(MagickFalse);
+  FcConfigSetRescanInterval(font_config,0);
   font_set=(FcFontSet *) NULL;
   object_set=FcObjectSetBuild(FC_FULLNAME,FC_FAMILY,FC_STYLE,FC_SLANT,
     FC_WIDTH,FC_WEIGHT,FC_FILE,(char *) NULL);
@@ -773,7 +780,7 @@ MagickExport MagickBooleanType LoadFontConfigFonts(SplayTreeInfo *type_cache,
       pattern=FcPatternCreate();
       if (pattern != (FcPattern *) NULL)
         {
-          font_set=FcFontList(0,pattern,object_set);
+          font_set=FcFontList(font_config,pattern,object_set);
           FcPatternDestroy(pattern);
         }
       FcObjectSetDestroy(object_set);

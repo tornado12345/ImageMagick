@@ -17,13 +17,13 @@
 %                                 October 1996                                %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -209,8 +209,7 @@ MagickExport Image *AdaptiveThresholdImage(const Image *image,
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickCoreSignature);
-  threshold_image=CloneImage(image,image->columns,image->rows,MagickTrue,
-    exception);
+  threshold_image=CloneImage(image,0,0,MagickTrue,exception);
   if (threshold_image == (Image *) NULL)
     return((Image *) NULL);
   status=SetImageStorageClass(threshold_image,DirectClass,exception);
@@ -275,8 +274,7 @@ MagickExport Image *AdaptiveThresholdImage(const Image *image,
       if ((traits == UndefinedPixelTrait) ||
           (threshold_traits == UndefinedPixelTrait))
         continue;
-      if (((threshold_traits & CopyPixelTrait) != 0) ||
-          (GetPixelWriteMask(image,p) <= (QuantumRange/2)))
+      if ((threshold_traits & CopyPixelTrait) != 0)
         {
           SetPixelChannel(threshold_image,channel,p[center+i],q);
           continue;
@@ -310,8 +308,7 @@ MagickExport Image *AdaptiveThresholdImage(const Image *image,
         if ((traits == UndefinedPixelTrait) ||
             (threshold_traits == UndefinedPixelTrait))
           continue;
-        if (((threshold_traits & CopyPixelTrait) != 0) ||
-            (GetPixelWriteMask(image,p) <= (QuantumRange/2)))
+        if ((threshold_traits & CopyPixelTrait) != 0)
           {
             SetPixelChannel(threshold_image,channel,p[center+i],q);
             continue;
@@ -341,9 +338,10 @@ MagickExport Image *AdaptiveThresholdImage(const Image *image,
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-        #pragma omp critical (MagickCore_AdaptiveThresholdImage)
+        #pragma omp atomic
 #endif
-        proceed=SetImageProgress(image,AdaptiveThresholdImageTag,progress++,
+        progress++;
+        proceed=SetImageProgress(image,AdaptiveThresholdImageTag,progress,
           image->rows);
         if (proceed == MagickFalse)
           status=MagickFalse;
@@ -565,7 +563,7 @@ static double OTSUThreshold(const Image *image,const double *histogram,
   return(100.0*threshold/MaxIntensity);
 }
 
-static double TriangleThreshold(const Image *image,const double *histogram,
+static double TriangleThreshold(const double *histogram,
   ExceptionInfo *exception)
 {
   double
@@ -742,7 +740,7 @@ MagickExport MagickBooleanType AutoThresholdImage(Image *image,
     }
     case TriangleThresholdMethod:
     {
-      threshold=TriangleThreshold(image,histogram,exception);
+      threshold=TriangleThreshold(histogram,exception);
       break;
     }
   }
@@ -859,11 +857,6 @@ MagickExport MagickBooleanType BilevelImage(Image *image,const double threshold,
       register ssize_t
         i;
 
-      if (GetPixelWriteMask(image,q) <= (QuantumRange/2))
-        {
-          q+=GetPixelChannels(image);
-          continue;
-        }
       pixel=GetPixelIntensity(image,q);
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
@@ -885,8 +878,9 @@ MagickExport MagickBooleanType BilevelImage(Image *image,const double threshold,
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-        #pragma omp critical (MagickCore_BilevelImage)
+        #pragma omp atomic
 #endif
+        progress++;
         proceed=SetImageProgress(image,ThresholdImageTag,progress++,
           image->rows);
         if (proceed == MagickFalse)
@@ -1024,11 +1018,6 @@ MagickExport MagickBooleanType BlackThresholdImage(Image *image,
       register ssize_t
         i;
 
-      if (GetPixelWriteMask(image,q) <= (QuantumRange/2))
-        {
-          q+=GetPixelChannels(image);
-          continue;
-        }
       pixel=GetPixelIntensity(image,q);
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
@@ -1051,9 +1040,10 @@ MagickExport MagickBooleanType BlackThresholdImage(Image *image,
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-        #pragma omp critical (MagickCore_BlackThresholdImage)
+        #pragma omp atomic
 #endif
-        proceed=SetImageProgress(image,ThresholdImageTag,progress++,
+        progress++;
+        proceed=SetImageProgress(image,ThresholdImageTag,progress,
           image->rows);
         if (proceed == MagickFalse)
           status=MagickFalse;
@@ -1160,11 +1150,6 @@ MagickExport MagickBooleanType ClampImage(Image *image,ExceptionInfo *exception)
       register ssize_t
         i;
 
-      if (GetPixelWriteMask(image,q) <= (QuantumRange/2))
-        {
-          q+=GetPixelChannels(image);
-          continue;
-        }
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
         PixelChannel channel = GetPixelChannelChannel(image,i);
@@ -1183,9 +1168,10 @@ MagickExport MagickBooleanType ClampImage(Image *image,ExceptionInfo *exception)
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-        #pragma omp critical (MagickCore_ClampImage)
+        #pragma omp atomic
 #endif
-        proceed=SetImageProgress(image,ClampImageTag,progress++,image->rows);
+        progress++;
+        proceed=SetImageProgress(image,ClampImageTag,progress,image->rows);
         if (proceed == MagickFalse)
           status=MagickFalse;
       }
@@ -1799,11 +1785,6 @@ MagickExport MagickBooleanType OrderedDitherImage(Image *image,
         n;
 
       n=0;
-      if (GetPixelWriteMask(image,q) <= (QuantumRange/2))
-        {
-          q+=GetPixelChannels(image);
-          continue;
-        }
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
         ssize_t
@@ -1837,9 +1818,10 @@ MagickExport MagickBooleanType OrderedDitherImage(Image *image,
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-        #pragma omp critical (MagickCore_OrderedDitherImage)
+        #pragma omp atomic
 #endif
-        proceed=SetImageProgress(image,DitherImageTag,progress++,image->rows);
+        progress++;
+        proceed=SetImageProgress(image,DitherImageTag,progress,image->rows);
         if (proceed == MagickFalse)
           status=MagickFalse;
       }
@@ -1966,11 +1948,6 @@ MagickExport MagickBooleanType PerceptibleImage(Image *image,
       register ssize_t
         i;
 
-      if (GetPixelWriteMask(image,q) <= (QuantumRange/2))
-        {
-          q+=GetPixelChannels(image);
-          continue;
-        }
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
         PixelChannel channel = GetPixelChannelChannel(image,i);
@@ -1989,9 +1966,11 @@ MagickExport MagickBooleanType PerceptibleImage(Image *image,
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-        #pragma omp critical (MagickCore_PerceptibleImage)
+        #pragma omp atomic
 #endif
-        proceed=SetImageProgress(image,PerceptibleImageTag,progress++,image->rows);
+        progress++;
+        proceed=SetImageProgress(image,PerceptibleImageTag,progress,
+          image->rows);
         if (proceed == MagickFalse)
           status=MagickFalse;
       }
@@ -2103,11 +2082,6 @@ MagickExport MagickBooleanType RandomThresholdImage(Image *image,
       register ssize_t
         i;
 
-      if (GetPixelWriteMask(image,q) <= (QuantumRange/2))
-        {
-          q+=GetPixelChannels(image);
-          continue;
-        }
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
         double
@@ -2137,9 +2111,10 @@ MagickExport MagickBooleanType RandomThresholdImage(Image *image,
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-        #pragma omp critical (MagickCore_RandomThresholdImage)
+        #pragma omp atomic
 #endif
-        proceed=SetImageProgress(image,ThresholdImageTag,progress++,
+        progress++;
+        proceed=SetImageProgress(image,ThresholdImageTag,progress,
           image->rows);
         if (proceed == MagickFalse)
           status=MagickFalse;
@@ -2147,6 +2122,151 @@ MagickExport MagickBooleanType RandomThresholdImage(Image *image,
   }
   image_view=DestroyCacheView(image_view);
   random_info=DestroyRandomInfoThreadSet(random_info);
+  return(status);
+}
+
+/*
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%     R a n g e T h r e s h o l d I m a g e                                   %
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%  RangeThresholdImage() applies soft and hard thresholding.
+%
+%  The format of the RangeThresholdImage method is:
+%
+%      MagickBooleanType RangeThresholdImage(Image *image,
+%        const double low_black,const double low_white,const double high_white,
+%        const double high_black,ExceptionInfo *exception)
+%
+%  A description of each parameter follows:
+%
+%    o image: the image.
+%
+%    o low_black: Define the minimum threshold value.
+%
+%    o low_white: Define the maximum threshold value.
+%
+%    o high_white: Define the minimum threshold value.
+%
+%    o low_white: Define the maximum threshold value.
+%
+%    o exception: return any errors or warnings in this structure.
+%
+*/
+MagickExport MagickBooleanType RangeThresholdImage(Image *image,
+  const double low_black,const double low_white,const double high_white,
+  const double high_black,ExceptionInfo *exception)
+{
+#define ThresholdImageTag  "Threshold/Image"
+
+  CacheView
+    *image_view;
+
+  MagickBooleanType
+    status;
+
+  MagickOffsetType
+    progress;
+
+  ssize_t
+    y;
+
+  assert(image != (Image *) NULL);
+  assert(image->signature == MagickCoreSignature);
+  if (image->debug != MagickFalse)
+    (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
+  if (SetImageStorageClass(image,DirectClass,exception) == MagickFalse)
+    return(MagickFalse);
+  if (IsGrayColorspace(image->colorspace) != MagickFalse)
+    (void) TransformImageColorspace(image,sRGBColorspace,exception);
+  /*
+    Range threshold image.
+  */
+  status=MagickTrue;
+  progress=0;
+  image_view=AcquireAuthenticCacheView(image,exception);
+#if defined(MAGICKCORE_OPENMP_SUPPORT)
+  #pragma omp parallel for schedule(static) shared(progress,status) \
+    magick_number_threads(image,image,image->rows,1)
+#endif
+  for (y=0; y < (ssize_t) image->rows; y++)
+  {
+    register ssize_t
+      x;
+
+    register Quantum
+      *magick_restrict q;
+
+    if (status == MagickFalse)
+      continue;
+    q=GetCacheViewAuthenticPixels(image_view,0,y,image->columns,1,exception);
+    if (q == (Quantum *) NULL)
+      {
+        status=MagickFalse;
+        continue;
+      }
+    for (x=0; x < (ssize_t) image->columns; x++)
+    {
+      double
+        pixel;
+
+      register ssize_t
+        i;
+
+      pixel=GetPixelIntensity(image,q);
+      for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
+      {
+        PixelChannel channel = GetPixelChannelChannel(image,i);
+        PixelTrait traits = GetPixelChannelTraits(image,channel);
+        if ((traits & UpdatePixelTrait) == 0)
+          continue;
+        if (image->channel_mask != DefaultChannels)
+          pixel=(double) q[i];
+        if (pixel < low_black)
+          q[i]=0;
+        else
+          if ((pixel >= low_black) && (pixel < low_white))
+            q[i]=ClampToQuantum(QuantumRange*
+              PerceptibleReciprocal(low_white-low_black)*(pixel-low_black));
+          else
+            if ((pixel >= low_white) && (pixel <= high_white))
+              q[i]=QuantumRange;
+            else
+              if ((pixel > high_white) && (pixel <= high_black))
+                q[i]=ClampToQuantum(QuantumRange*PerceptibleReciprocal(
+                  high_black-high_white)*(high_black-pixel));
+              else
+                if (pixel > high_black)
+                  q[i]=0;
+                else
+                  q[i]=0;
+      }
+      q+=GetPixelChannels(image);
+    }
+    if (SyncCacheViewAuthenticPixels(image_view,exception) == MagickFalse)
+      status=MagickFalse;
+    if (image->progress_monitor != (MagickProgressMonitor) NULL)
+      {
+        MagickBooleanType
+          proceed;
+
+#if defined(MAGICKCORE_OPENMP_SUPPORT)
+        #pragma omp atomic
+#endif
+        progress++;
+        proceed=SetImageProgress(image,ThresholdImageTag,progress,
+          image->rows);
+        if (proceed == MagickFalse)
+          status=MagickFalse;
+      }
+  }
+  image_view=DestroyCacheView(image_view);
   return(status);
 }
 
@@ -2277,11 +2397,6 @@ MagickExport MagickBooleanType WhiteThresholdImage(Image *image,
       register ssize_t
         i;
 
-      if (GetPixelWriteMask(image,q) <= (QuantumRange/2))
-        {
-          q+=GetPixelChannels(image);
-          continue;
-        }
       pixel=GetPixelIntensity(image,q);
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
@@ -2304,10 +2419,10 @@ MagickExport MagickBooleanType WhiteThresholdImage(Image *image,
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-        #pragma omp critical (MagickCore_WhiteThresholdImage)
+        #pragma omp atomic
 #endif
-        proceed=SetImageProgress(image,ThresholdImageTag,progress++,
-          image->rows);
+        progress++;
+        proceed=SetImageProgress(image,ThresholdImageTag,progress,image->rows);
         if (proceed == MagickFalse)
           status=MagickFalse;
       }

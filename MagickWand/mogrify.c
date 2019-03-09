@@ -17,13 +17,13 @@
 %                                March 2000                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -48,6 +48,7 @@
 #include "MagickWand/MagickWand.h"
 #include "MagickWand/magick-wand-private.h"
 #include "MagickWand/mogrify-private.h"
+#include "MagickCore/composite-private.h"
 #include "MagickCore/image-private.h"
 #include "MagickCore/monitor-private.h"
 #include "MagickCore/string-private.h"
@@ -292,7 +293,7 @@ WandExport MagickBooleanType MagickCommandGenesis(ImageInfo *image_info,
       e=((1.0/(1.0/((serial/(serial+parallel))+(1.0-(serial/(serial+parallel)))/
         (double) n)))-(1.0/(double) n))/(1.0-1.0/(double) n);
     (void) FormatLocaleFile(stderr,
-      "Performance[%.20g]: %.20gi %0.3fips %0.3fe %0.3fu %lu:%02lu.%03lu\n",
+      "Performance[%.20g]: %.20gi %0.3fips %0.6fe %0.6fu %lu:%02lu.%03lu\n",
       (double) n,(double) iterations,(double) iterations/parallel,e,user_time,
       (unsigned long) (parallel/60.0),(unsigned long) floor(fmod(parallel,
       60.0)),(unsigned long) (1000.0*(parallel-floor(parallel))+0.5));
@@ -1079,6 +1080,18 @@ WandExport MagickBooleanType MogrifyImage(ImageInfo *image_info,const int argc,
             mogrify_image=ChopImage(*image,&geometry,exception);
             break;
           }
+        if (LocaleCompare("clahe",option+1) == 0)
+          {
+            /*
+              Contrast limited adaptive histogram equalization.
+            */
+            (void) SyncImageSettings(mogrify_info,*image,exception);
+            flags=ParseRegionGeometry(*image,argv[i+1],&geometry,exception);
+            flags=ParseGeometry(argv[i+1],&geometry_info);
+            (void) CLAHEImage(*image,geometry.width,geometry.height,
+              (size_t) geometry.x,geometry_info.psi,exception);
+            break;
+          }
         if (LocaleCompare("clip",option+1) == 0)
           {
             (void) SyncImageSettings(mogrify_info,*image,exception);
@@ -1093,20 +1106,8 @@ WandExport MagickBooleanType MogrifyImage(ImageInfo *image_info,const int argc,
           }
         if (LocaleCompare("clip-mask",option+1) == 0)
           {
-            CacheView
-              *mask_view;
-
             Image
-              *mask_image;
-
-            register Quantum
-              *magick_restrict q;
-
-            register ssize_t
-              x;
-
-            ssize_t
-              y;
+              *clip_mask;
 
             (void) SyncImageSettings(mogrify_info,*image,exception);
             if (*option == '+')
@@ -1114,42 +1115,18 @@ WandExport MagickBooleanType MogrifyImage(ImageInfo *image_info,const int argc,
                 /*
                   Remove a mask.
                 */
-                (void) SetImageMask(*image,ReadPixelMask,(Image *) NULL,
+                (void) SetImageMask(*image,WritePixelMask,(Image *) NULL,
                   exception);
                 break;
               }
             /*
               Set the image mask.
-              FUTURE: This Should Be a SetImageAlphaChannel() call, Or two.
             */
-            mask_image=GetImageCache(mogrify_info,argv[i+1],exception);
-            if (mask_image == (Image *) NULL)
+            clip_mask=GetImageCache(mogrify_info,argv[i+1],exception);
+            if (clip_mask == (Image *) NULL)
               break;
-            if (SetImageStorageClass(mask_image,DirectClass,exception) == MagickFalse)
-              return(MagickFalse);
-            mask_view=AcquireAuthenticCacheView(mask_image,exception);
-            for (y=0; y < (ssize_t) mask_image->rows; y++)
-            {
-              q=GetCacheViewAuthenticPixels(mask_view,0,y,mask_image->columns,1,
-                exception);
-              if (q == (Quantum *) NULL)
-                break;
-              for (x=0; x < (ssize_t) mask_image->columns; x++)
-              {
-                if (mask_image->alpha_trait == UndefinedPixelTrait)
-                  SetPixelAlpha(mask_image,(Quantum)
-                    GetPixelIntensity(mask_image,q),q);
-                SetPixelRed(mask_image,GetPixelAlpha(mask_image,q),q);
-                SetPixelGreen(mask_image,GetPixelAlpha(mask_image,q),q);
-                SetPixelBlue(mask_image,GetPixelAlpha(mask_image,q),q);
-                q+=GetPixelChannels(mask_image);
-              }
-              if (SyncCacheViewAuthenticPixels(mask_view,exception) == MagickFalse)
-                break;
-            }
-            mask_view=DestroyCacheView(mask_view);
-            mask_image->alpha_trait=BlendPixelTrait;
-            (void) SetImageMask(*image,ReadPixelMask,mask_image,exception);
+            (void) SetImageMask(*image,WritePixelMask,clip_mask,exception);
+            clip_mask=DestroyImage(clip_mask);
             break;
           }
         if (LocaleCompare("clip-path",option+1) == 0)
@@ -1650,10 +1627,8 @@ WandExport MagickBooleanType MogrifyImage(ImageInfo *image_info,const int argc,
             */
             (void) SyncImageSettings(mogrify_info,*image,exception);
             (void) ParsePageGeometry(*image,argv[i+1],&geometry,exception);
-            (void) GetOneVirtualPixelInfo(*image,TileVirtualPixelMethod,
-              geometry.x,geometry.y,&target,exception);
-            (void) QueryColorCompliance(argv[i+2],AllCompliance,
-              &draw_info->fill,exception);
+            (void) QueryColorCompliance(argv[i+2],AllCompliance,&target,
+              exception);
             (void) FloodfillPaintImage(*image,draw_info,&target,geometry.x,
               geometry.y,*option == '-' ? MagickFalse : MagickTrue,exception);
             break;
@@ -2155,7 +2130,6 @@ WandExport MagickBooleanType MogrifyImage(ImageInfo *image_info,const int argc,
             mask=GetImageCache(mogrify_info,argv[i+1],exception);
             if (mask == (Image *) NULL)
               break;
-            (void) NegateImage(mask,MagickFalse,exception);
             (void) SetImageMask(*image,WritePixelMask,mask,exception);
             mask=DestroyImage(mask);
             break;
@@ -2494,6 +2468,7 @@ WandExport MagickBooleanType MogrifyImage(ImageInfo *image_info,const int argc,
                   exception);
                 if (file_data != (StringInfo *) NULL)
                   {
+                    (void) SetImageInfo(profile_info,0,exception);
                     (void) ProfileImage(*image,profile_info->magick,
                       GetStringInfoDatum(file_data),
                       GetStringInfoLength(file_data),exception);
@@ -2558,7 +2533,7 @@ WandExport MagickBooleanType MogrifyImage(ImageInfo *image_info,const int argc,
         if (LocaleCompare("random-threshold",option+1) == 0)
           {
             /*
-              Threshold image.
+              Random threshold image.
             */
             double
               min_threshold,
@@ -2579,6 +2554,30 @@ WandExport MagickBooleanType MogrifyImage(ImageInfo *image_info,const int argc,
               }
             (void) RandomThresholdImage(*image,min_threshold,max_threshold,
               exception);
+            break;
+          }
+        if (LocaleCompare("range-threshold",option+1) == 0)
+          {
+            /*
+              Range threshold image.
+            */
+            (void) SyncImageSettings(mogrify_info,*image,exception);
+            flags=ParseGeometry(argv[i+1],&geometry_info);
+            if ((flags & SigmaValue) == 0)
+              geometry_info.sigma=geometry_info.rho;
+            if ((flags & XiValue) == 0)
+              geometry_info.xi=geometry_info.sigma;
+            if ((flags & PsiValue) == 0)
+              geometry_info.psi=geometry_info.xi;
+            if (strchr(argv[i+1],'%') != (char *) NULL)
+              {
+                geometry_info.rho*=(double) (0.01*QuantumRange);
+                geometry_info.sigma*=(double) (0.01*QuantumRange);
+                geometry_info.xi*=(double) (0.01*QuantumRange);
+                geometry_info.psi*=(double) (0.01*QuantumRange);
+              }
+            (void) RangeThresholdImage(*image,geometry_info.rho,
+              geometry_info.sigma,geometry_info.xi,geometry_info.psi,exception);
             break;
           }
         if (LocaleCompare("read-mask",option+1) == 0)
@@ -3486,6 +3485,7 @@ static MagickBooleanType MogrifyUsage(void)
       "-channel mask        set the image channel mask",
       "-charcoal geometry   simulate a charcoal drawing",
       "-chop geometry       remove pixels from the image interior",
+      "-clahe geometry      contrast limited adaptive histogram equalization",
       "-clamp               keep pixel values in range (0-QuantumRange)",
       "-clip                clip along the first path from the 8BIM profile",
       "-clip-mask filename  associate a clip mask with the image",
@@ -3575,6 +3575,8 @@ static MagickBooleanType MogrifyUsage(void)
       "-raise value         lighten/darken image edges to create a 3-D effect",
       "-random-threshold low,high",
       "                     random threshold the image",
+      "-range-threshold values",
+      "                     perform either hard or soft thresholding within some range of values in an image",
       "-region geometry     apply options to a portion of the image",
       "-render              render vector graphics",
       "-repage geometry     size and location of an image canvas",
@@ -4334,6 +4336,17 @@ WandExport MagickBooleanType MogrifyImageCommand(ImageInfo *image_info,
             break;
           }
         if (LocaleCompare("chop",option+1) == 0)
+          {
+            if (*option == '+')
+              break;
+            i++;
+            if (i == (ssize_t) argc)
+              ThrowMogrifyException(OptionError,"MissingArgument",option);
+            if (IsGeometry(argv[i]) == MagickFalse)
+              ThrowMogrifyInvalidArgumentException(option,argv[i]);
+            break;
+          }
+        if (LocaleCompare("clahe",option+1) == 0)
           {
             if (*option == '+')
               break;
@@ -5364,7 +5377,7 @@ WandExport MagickBooleanType MogrifyImageCommand(ImageInfo *image_info,
               ThrowMogrifyException(OptionError,"UnrecognizedListType",argv[i]);
             status=MogrifyImageInfo(image_info,(int) (i-j+1),(const char **)
               argv+j,exception);
-            return(status == 0 ? MagickTrue : MagickFalse);
+            return(status == 0 ? MagickFalse : MagickTrue);
           }
         if (LocaleCompare("log",option+1) == 0)
           {
@@ -5793,6 +5806,17 @@ WandExport MagickBooleanType MogrifyImageCommand(ImageInfo *image_info,
             break;
           }
         if (LocaleCompare("random-threshold",option+1) == 0)
+          {
+            if (*option == '+')
+              break;
+            i++;
+            if (i == (ssize_t) argc)
+              ThrowMogrifyException(OptionError,"MissingArgument",option);
+            if (IsGeometry(argv[i]) == MagickFalse)
+              ThrowMogrifyInvalidArgumentException(option,argv[i]);
+            break;
+          }
+        if (LocaleCompare("range-threshold",option+1) == 0)
           {
             if (*option == '+')
               break;
@@ -7963,17 +7987,13 @@ WandExport MagickBooleanType MogrifyImageList(ImageInfo *image_info,
                 MagickComposeOptions,MagickFalse,value);
 
             /* Get "clip-to-self" expert setting (false is normal) */
+            clip_to_self=GetCompositeClipToSelf(compose);
             value=GetImageOption(mogrify_info,"compose:clip-to-self");
-            if (value == (const char *) NULL)
-              clip_to_self=MagickTrue;
-            else
-              clip_to_self=IsStringTrue(GetImageOption(mogrify_info,
-                "compose:clip-to-self")); /* if this is true */
+            if (value != (const char *) NULL)
+              clip_to_self=IsStringTrue(value);
             value=GetImageOption(mogrify_info,"compose:outside-overlay");
-            if (value != (const char *) NULL) {   /* or this false */
-              /* FUTURE: depreciate warning for "compose:outside-overlay"*/
-              clip_to_self=IsStringFalse(value);
-            }
+            if (value != (const char *) NULL)
+              clip_to_self=IsStringFalse(value);  /* deprecated */
 
             new_images=RemoveFirstImageFromList(images);
             source_image=RemoveFirstImageFromList(images);

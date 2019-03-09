@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -269,14 +269,13 @@ static MagickBooleanType InvokePDFDelegate(const MagickBooleanType verbose,
       SetArgsStart(command,args_start);
       if (status == -101) /* quit */
         (void) FormatLocaleString(message,MagickPathExtent,
-          "[ghostscript library %.2f]%s: %s",(double)revision.revision/100.0,
+          "[ghostscript library %.2f]%s: %s",(double) revision.revision/100.0,
           args_start,errors);
       else
         {
-          (void) ThrowMagickException(exception,GetMagickModule(),
-            DelegateError,"PDFDelegateFailed",
-            "`[ghostscript library %.2f]%s': %s",
-            (double)revision.revision/100.0,args_start,errors);
+          (void) ThrowMagickException(exception,GetMagickModule(),DelegateError,
+            "PDFDelegateFailed","`[ghostscript library %.2f]%s': %s",(double)
+            revision.revision/100.0,args_start,errors);
           if (errors != (char *) NULL)
             errors=DestroyString(errors);
           (void) LogMagickEvent(CoderEvent,GetMagickModule(),
@@ -920,6 +919,7 @@ ModuleExport size_t RegisterPDFImage(void)
   entry=AcquireMagickInfo("PDF","AI","Adobe Illustrator CS2");
   entry->decoder=(DecodeImageHandler *) ReadPDFImage;
   entry->encoder=(EncodeImageHandler *) WritePDFImage;
+  entry->flags|=CoderDecoderSeekableStreamFlag;
   entry->flags^=CoderAdjoinFlag;
   entry->flags^=CoderBlobSupportFlag;
   entry->mime_type=ConstantString("application/pdf");
@@ -928,6 +928,7 @@ ModuleExport size_t RegisterPDFImage(void)
     "Encapsulated Portable Document Format");
   entry->decoder=(DecodeImageHandler *) ReadPDFImage;
   entry->encoder=(EncodeImageHandler *) WritePDFImage;
+  entry->flags|=CoderDecoderSeekableStreamFlag;
   entry->flags^=CoderAdjoinFlag;
   entry->flags^=CoderBlobSupportFlag;
   entry->mime_type=ConstantString("application/pdf");
@@ -936,6 +937,7 @@ ModuleExport size_t RegisterPDFImage(void)
   entry->decoder=(DecodeImageHandler *) ReadPDFImage;
   entry->encoder=(EncodeImageHandler *) WritePDFImage;
   entry->magick=(IsImageFormatHandler *) IsPDF;
+  entry->flags|=CoderDecoderSeekableStreamFlag;
   entry->flags^=CoderBlobSupportFlag;
   entry->mime_type=ConstantString("application/pdf");
   (void) RegisterMagickInfo(entry);
@@ -943,6 +945,7 @@ ModuleExport size_t RegisterPDFImage(void)
   entry->decoder=(DecodeImageHandler *) ReadPDFImage;
   entry->encoder=(EncodeImageHandler *) WritePDFImage;
   entry->magick=(IsImageFormatHandler *) IsPDF;
+  entry->flags|=CoderDecoderSeekableStreamFlag;
   entry->flags^=CoderBlobSupportFlag;
   entry->mime_type=ConstantString("application/pdf");
   (void) RegisterMagickInfo(entry);
@@ -1343,9 +1346,6 @@ RestoreMSCWarning
   unsigned char
     *pixels;
 
-  wchar_t
-    *utf16;
-
   /*
     Open output image file.
   */
@@ -1418,7 +1418,7 @@ RestoreMSCWarning
   (void) WriteBlobString(image,"/Type /Catalog");
   option=GetImageOption(image_info,"pdf:page-direction");
   if ((option != (const char *) NULL) &&
-      (LocaleCompare(option,"right-to-left") != MagickFalse))
+      (LocaleCompare(option,"right-to-left") == 0))
     (void) WriteBlobString(image,"/ViewerPreferences<</PageDirection/R2L>>\n");
   (void) WriteBlobString(image,"\n");
   (void) WriteBlobString(image,">>\n");
@@ -1451,7 +1451,7 @@ RestoreMSCWarning
       if (value != (const char *) NULL)
         (void) CopyMagickString(create_date,value,MagickPathExtent);
       (void) FormatMagickTime(time((time_t *) NULL),MagickPathExtent,timestamp);
-      url=MagickAuthoritativeURL;
+      url=(char *) MagickAuthoritativeURL;
       escape=EscapeParenthesis(basename);
       i=FormatLocaleString(xmp_profile,MagickPathExtent,XMPProfile,
         XMPProfileMagick,modify_date,create_date,timestamp,url,escape,url);
@@ -1905,6 +1905,7 @@ RestoreMSCWarning
             status=InjectImageBlob(image_info,image,image,"jpeg",exception);
             if (status == MagickFalse)
               {
+                xref=(MagickOffsetType *) RelinquishMagickMemory(xref);
                 (void) CloseBlob(image);
                 return(MagickFalse);
               }
@@ -1915,6 +1916,7 @@ RestoreMSCWarning
             status=InjectImageBlob(image_info,image,image,"jp2",exception);
             if (status == MagickFalse)
               {
+                xref=(MagickOffsetType *) RelinquishMagickMemory(xref);
                 (void) CloseBlob(image);
                 return(MagickFalse);
               }
@@ -1968,6 +1970,7 @@ RestoreMSCWarning
             pixel_info=RelinquishVirtualMemory(pixel_info);
             if (status == MagickFalse)
               {
+                xref=(MagickOffsetType *) RelinquishMagickMemory(xref);
                 (void) CloseBlob(image);
                 return(MagickFalse);
               }
@@ -2014,6 +2017,7 @@ RestoreMSCWarning
             status=InjectImageBlob(image_info,image,image,"jpeg",exception);
             if (status == MagickFalse)
               {
+                xref=(MagickOffsetType *) RelinquishMagickMemory(xref);
                 (void) CloseBlob(image);
                 return(MagickFalse);
               }
@@ -2024,6 +2028,7 @@ RestoreMSCWarning
             status=InjectImageBlob(image_info,image,image,"jp2",exception);
             if (status == MagickFalse)
               {
+                xref=(MagickOffsetType *) RelinquishMagickMemory(xref);
                 (void) CloseBlob(image);
                 return(MagickFalse);
               }
@@ -2042,10 +2047,7 @@ RestoreMSCWarning
             length*=image->colorspace == CMYKColorspace ? 4UL : 3UL;
             pixel_info=AcquireVirtualMemory(length,sizeof(*pixels));
             if (pixel_info == (MemoryInfo *) NULL)
-              {
-                xref=(MagickOffsetType *) RelinquishMagickMemory(xref);
-                ThrowPDFException(ResourceLimitError,"MemoryAllocationFailed");
-              }
+              ThrowPDFException(ResourceLimitError,"MemoryAllocationFailed");
             pixels=(unsigned char *) GetVirtualMemoryBlob(pixel_info);
             /*
               Dump runoffset encoded pixels.
@@ -2085,6 +2087,7 @@ RestoreMSCWarning
             pixel_info=RelinquishVirtualMemory(pixel_info);
             if (status == MagickFalse)
               {
+                xref=(MagickOffsetType *) RelinquishMagickMemory(xref);
                 (void) CloseBlob(image);
                 return(MagickFalse);
               }
@@ -2142,11 +2145,7 @@ RestoreMSCWarning
               length=(size_t) number_pixels;
               pixel_info=AcquireVirtualMemory(length,sizeof(*pixels));
               if (pixel_info == (MemoryInfo *) NULL)
-                {
-                  xref=(MagickOffsetType *) RelinquishMagickMemory(xref);
-                  ThrowPDFException(ResourceLimitError,
-                    "MemoryAllocationFailed");
-                }
+                ThrowPDFException(ResourceLimitError,"MemoryAllocationFailed");
               pixels=(unsigned char *) GetVirtualMemoryBlob(pixel_info);
               /*
                 Dump Runlength encoded pixels.
@@ -2182,6 +2181,7 @@ RestoreMSCWarning
               pixel_info=RelinquishVirtualMemory(pixel_info);
               if (status == MagickFalse)
                 {
+                  xref=(MagickOffsetType *) RelinquishMagickMemory(xref);
                   (void) CloseBlob(image);
                   return(MagickFalse);
                 }
@@ -2430,6 +2430,7 @@ RestoreMSCWarning
               exception);
             if (status == MagickFalse)
               {
+                xref=(MagickOffsetType *) RelinquishMagickMemory(xref);
                 (void) CloseBlob(image);
                 return(MagickFalse);
               }
@@ -2440,6 +2441,7 @@ RestoreMSCWarning
             status=InjectImageBlob(image_info,image,tile_image,"jp2",exception);
             if (status == MagickFalse)
               {
+                xref=(MagickOffsetType *) RelinquishMagickMemory(xref);
                 (void) CloseBlob(image);
                 return(MagickFalse);
               }
@@ -2491,6 +2493,7 @@ RestoreMSCWarning
             pixel_info=RelinquishVirtualMemory(pixel_info);
             if (status == MagickFalse)
               {
+                xref=(MagickOffsetType *) RelinquishMagickMemory(xref);
                 (void) CloseBlob(image);
                 return(MagickFalse);
               }
@@ -2532,6 +2535,7 @@ RestoreMSCWarning
               exception);
             if (status == MagickFalse)
               {
+                xref=(MagickOffsetType *) RelinquishMagickMemory(xref);
                 (void) CloseBlob(image);
                 return(MagickFalse);
               }
@@ -2542,6 +2546,7 @@ RestoreMSCWarning
             status=InjectImageBlob(image_info,image,tile_image,"jp2",exception);
             if (status == MagickFalse)
               {
+                xref=(MagickOffsetType *) RelinquishMagickMemory(xref);
                 (void) CloseBlob(image);
                 return(MagickFalse);
               }
@@ -2597,6 +2602,7 @@ RestoreMSCWarning
             pixel_info=RelinquishVirtualMemory(pixel_info);
             if (status == MagickFalse)
               {
+                xref=(MagickOffsetType *) RelinquishMagickMemory(xref);
                 (void) CloseBlob(image);
                 return(MagickFalse);
               }
@@ -2685,6 +2691,7 @@ RestoreMSCWarning
               pixel_info=RelinquishVirtualMemory(pixel_info);
               if (status == MagickFalse)
                 {
+                  xref=(MagickOffsetType *) RelinquishMagickMemory(xref);
                   (void) CloseBlob(image);
                   return(MagickFalse);
                 }
@@ -2897,6 +2904,7 @@ RestoreMSCWarning
             pixel_info=RelinquishVirtualMemory(pixel_info);
             if (status == MagickFalse)
               {
+                xref=(MagickOffsetType *) RelinquishMagickMemory(xref);
                 (void) CloseBlob(image);
                 return(MagickFalse);
               }
@@ -2954,17 +2962,26 @@ RestoreMSCWarning
     object);
   (void) WriteBlobString(image,buffer);
   (void) WriteBlobString(image,"<<\n");
-  utf16=ConvertUTF8ToUTF16((unsigned char *) basename,&length);
-  if (utf16 != (wchar_t *) NULL)
+  if (LocaleCompare(image_info->magick,"PDFA") == 0)
+    (void) FormatLocaleString(buffer,MagickPathExtent,"/Title (%s)\n",
+      EscapeParenthesis(basename));
+  else
     {
-      (void) FormatLocaleString(buffer,MagickPathExtent,"/Title (\xfe\xff");
-      (void) WriteBlobString(image,buffer);
-      for (i=0; i < (ssize_t) length; i++)
-        (void) WriteBlobMSBShort(image,(unsigned short) utf16[i]);
-      (void) FormatLocaleString(buffer,MagickPathExtent,")\n");
-      (void) WriteBlobString(image,buffer);
-      utf16=(wchar_t *) RelinquishMagickMemory(utf16);
+      wchar_t
+        *utf16;
+
+      utf16=ConvertUTF8ToUTF16((unsigned char *) basename,&length);
+      if (utf16 != (wchar_t *) NULL)
+        {
+          (void) FormatLocaleString(buffer,MagickPathExtent,"/Title (\xfe\xff");
+          (void) WriteBlobString(image,buffer);
+          for (i=0; i < (ssize_t) length; i++)
+            (void) WriteBlobMSBShort(image,(unsigned short) utf16[i]);
+          (void) FormatLocaleString(buffer,MagickPathExtent,")\n");
+          utf16=(wchar_t *) RelinquishMagickMemory(utf16);
+        }
     }
+  (void) WriteBlobString(image,buffer);
   seconds=time((time_t *) NULL);
 #if defined(MAGICKCORE_HAVE_LOCALTIME_R)
   (void) localtime_r(&seconds,&local_time);
@@ -2979,7 +2996,7 @@ RestoreMSCWarning
   (void) WriteBlobString(image,buffer);
   (void) FormatLocaleString(buffer,MagickPathExtent,"/ModDate (%s)\n",date);
   (void) WriteBlobString(image,buffer);
-  url=MagickAuthoritativeURL;
+  url=(char *) MagickAuthoritativeURL;
   escape=EscapeParenthesis(url);
   (void) FormatLocaleString(buffer,MagickPathExtent,"/Producer (%s)\n",escape);
   escape=DestroyString(escape);

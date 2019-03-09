@@ -98,20 +98,20 @@ typedef struct
   char identific[124];
   unsigned short Version;
   char EndianIndicator[2];
-  unsigned long DataType;
+  unsigned int DataType;
   unsigned int ObjectSize;
-  unsigned long unknown1;
-  unsigned long unknown2;
+  unsigned int unknown1;
+  unsigned int unknown2;
 
   unsigned short unknown5;
   unsigned char StructureFlag;
   unsigned char StructureClass;
-  unsigned long unknown3;
-  unsigned long unknown4;
-  unsigned long DimFlag;
+  unsigned int unknown3;
+  unsigned int unknown4;
+  unsigned int DimFlag;
 
-  unsigned long SizeX;
-  unsigned long SizeY;
+  unsigned int SizeX;
+  unsigned int SizeY;
   unsigned short Flag1;
   unsigned short NameFlag;
 }
@@ -178,18 +178,16 @@ typedef enum
 
 static const QuantumType z2qtype[4] = {GrayQuantum, BlueQuantum, GreenQuantum, RedQuantum};
 
-
 static void InsertComplexDoubleRow(Image *image,double *p,int y,double MinVal,
   double MaxVal,ExceptionInfo *exception)
 {
-
   double f;
   int x;
   register Quantum *q;
 
-  if (MinVal == 0)
+  if (MinVal >= 0)
     MinVal = -1;
-  if (MaxVal == 0)
+  if (MaxVal <= 0)
     MaxVal = 1;
 
   q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
@@ -198,49 +196,50 @@ static void InsertComplexDoubleRow(Image *image,double *p,int y,double MinVal,
   for (x = 0; x < (ssize_t) image->columns; x++)
   {
     if (*p > 0)
-    {
-      f = (*p / MaxVal) * (QuantumRange-GetPixelRed(image,q));
-      if (f + GetPixelRed(image,q) > QuantumRange)
-        SetPixelRed(image,QuantumRange,q);
-      else
-        SetPixelRed(image,GetPixelRed(image,q)+(int) f,q);
-      if ((int) f / 2.0 > GetPixelGreen(image,q))
-        {
-          SetPixelGreen(image,0,q);
-          SetPixelBlue(image,0,q);
-        }
-      else
-        {
-          SetPixelBlue(image,GetPixelBlue(image,q)-(int) (f/2.0),q);
-          SetPixelGreen(image,GetPixelBlue(image,q),q);
-        }
-    }
+      {
+        f=(*p/MaxVal)*(Quantum) (QuantumRange-GetPixelRed(image,q));
+        if ((f+GetPixelRed(image,q)) >= QuantumRange)
+          SetPixelRed(image,QuantumRange,q);
+        else
+          SetPixelRed(image,GetPixelRed(image,q)+ClampToQuantum(f),q);
+        f=GetPixelGreen(image,q)-f/2.0;
+        if (f <= 0.0)
+          {
+            SetPixelGreen(image,0,q);
+            SetPixelBlue(image,0,q);
+          }
+        else
+          {
+            SetPixelBlue(image,ClampToQuantum(f),q);
+            SetPixelGreen(image,ClampToQuantum(f),q);
+          }
+      }
     if (*p < 0)
-    {
-      f = (*p / MinVal) * (QuantumRange-GetPixelBlue(image,q));
-      if (f+GetPixelBlue(image,q) > QuantumRange)
-        SetPixelBlue(image,QuantumRange,q);
-      else
-        SetPixelBlue(image,GetPixelBlue(image,q)+(int) f,q);
-      if ((int) f / 2.0 > GetPixelGreen(image,q))
-        {
-          SetPixelRed(image,0,q);
-          SetPixelGreen(image,0,q);
-        }
-      else
-        {
-          SetPixelRed(image,GetPixelRed(image,q)-(int) (f/2.0),q);
-          SetPixelGreen(image,GetPixelRed(image,q),q);
-        }
-    }
+      {
+        f=(*p/MinVal)*(Quantum) (QuantumRange-GetPixelBlue(image,q));
+        if ((f+GetPixelBlue(image,q)) >= QuantumRange)
+          SetPixelBlue(image,QuantumRange,q);
+        else
+          SetPixelBlue(image,GetPixelBlue(image,q)+ClampToQuantum(f),q);
+        f=GetPixelGreen(image,q)-f/2.0;
+        if (f <= 0.0)
+          {
+            SetPixelRed(image,0,q);
+            SetPixelGreen(image,0,q);
+          }
+        else
+          {
+            SetPixelRed(image,ClampToQuantum(f),q);
+            SetPixelGreen(image,ClampToQuantum(f),q);
+          }
+      }
     p++;
-    q+=GetPixelChannels(image);
+    q++;
   }
   if (!SyncAuthenticPixels(image,exception))
     return;
   return;
 }
-
 
 static void InsertComplexFloatRow(Image *image,float *p,int y,double MinVal,
   double MaxVal,ExceptionInfo *exception)
@@ -249,9 +248,9 @@ static void InsertComplexFloatRow(Image *image,float *p,int y,double MinVal,
   int x;
   register Quantum *q;
 
-  if (MinVal == 0)
+  if (MinVal >= 0)
     MinVal = -1;
-  if (MaxVal == 0)
+  if (MaxVal <= 0)
     MaxVal = 1;
 
   q = QueueAuthenticPixels(image, 0, y, image->columns, 1,exception);
@@ -260,42 +259,43 @@ static void InsertComplexFloatRow(Image *image,float *p,int y,double MinVal,
   for (x = 0; x < (ssize_t) image->columns; x++)
   {
     if (*p > 0)
-    {
-      f = (*p / MaxVal) * (QuantumRange-GetPixelRed(image,q));
-      if (f+GetPixelRed(image,q) > QuantumRange)
-        SetPixelRed(image,QuantumRange,q);
-      else
-        SetPixelRed(image,GetPixelRed(image,q)+(int) f,q);
-      if ((int) f / 2.0 > GetPixelGreen(image,q))
-        {
-          SetPixelGreen(image,0,q);
-          SetPixelBlue(image,0,q);
-        }
-      else
-        {
-          SetPixelBlue(image,GetPixelBlue(image,q)-(int) (f/2.0),q);
-          SetPixelGreen(image,GetPixelBlue(image,q),q);
-        }
-    }
+      {
+        f=(*p/MaxVal)*(Quantum) (QuantumRange-GetPixelRed(image,q));
+        if ((f+GetPixelRed(image,q)) < QuantumRange)
+          SetPixelRed(image,GetPixelRed(image,q)+ClampToQuantum(f),q);
+        else
+          SetPixelRed(image,QuantumRange,q);
+        f/=2.0;
+        if (f < GetPixelGreen(image,q))
+          {
+            SetPixelBlue(image,GetPixelBlue(image,q)-ClampToQuantum(f),q);
+            SetPixelGreen(image,GetPixelBlue(image,q),q);
+          }
+        else
+          {
+            SetPixelGreen(image,0,q);
+            SetPixelBlue(image,0,q);
+          }
+      }
     if (*p < 0)
-    {
-      f = (*p / MaxVal) * (QuantumRange - GetPixelBlue(image,q));
-      if (f + GetPixelBlue(image,q) > QuantumRange)
-        SetPixelBlue(image,QuantumRange,q);
-      else
-        SetPixelBlue(image,GetPixelBlue(image,q)+
-          (int) f,q);
-      if ((int) f / 2.0 > GetPixelGreen(image,q))
-        {
-          SetPixelGreen(image,0,q);
-          SetPixelRed(image,0,q);
-        }
-      else
-        {
-          SetPixelRed(image,GetPixelRed(image,q)-(int) (f/2.0),q);
-          SetPixelGreen(image,GetPixelRed(image,q),q);
-        }
-    }
+      {
+        f=(*p/MaxVal)*(Quantum) (QuantumRange-GetPixelBlue(image,q));
+        if ((f+GetPixelBlue(image,q)) < QuantumRange)
+          SetPixelBlue(image,GetPixelBlue(image,q)+ClampToQuantum(f),q);
+        else
+          SetPixelBlue(image,QuantumRange,q);
+        f/=2.0;
+        if (f < GetPixelGreen(image,q))
+          {
+            SetPixelRed(image,GetPixelRed(image,q)-ClampToQuantum(f),q);
+            SetPixelGreen(image,GetPixelRed(image,q),q);
+          }
+        else
+          {
+            SetPixelGreen(image,0,q);
+            SetPixelRed(image,0,q);
+          }
+      }
     p++;
     q++;
   }
@@ -631,9 +631,9 @@ static Image *ReadMATImageV4(const ImageInfo *image_info,Image *image,
   unsigned int
     depth;
 
-
   quantum_info=(QuantumInfo *) NULL;
   (void) SeekBlob(image,0,SEEK_SET);
+  status=MagickTrue;
   while (EOFBlob(image) == MagickFalse)
   {
     /*
@@ -814,7 +814,10 @@ static Image *ReadMATImageV4(const ImageInfo *image_info,Image *image,
 skip_reading_current:
     AcquireNextImage(image_info,image,exception);
     if (GetNextImageInList(image) == (Image *) NULL)
-      return(DestroyImageList(image));
+      {
+        status=MagickFalse;
+        break;
+      }
     image=SyncNextImageInList(image);
     status=SetImageProgress(image,LoadImagesTag,TellBlob(image),
       GetBlobSize(image));
@@ -822,6 +825,8 @@ skip_reading_current:
       break;
   }
   (void) CloseBlob(image);
+  if (status == MagickFalse)
+    return(DestroyImageList(image));
   return(GetFirstImageInList(image));
 }
 
@@ -958,6 +963,8 @@ MATLAB_KO:
   while(!EOFBlob(image)) /* object parser loop */
   {
     Frames = 1;
+    if (filepos != (unsigned int) filepos)
+      break;
     if(SeekBlob(image,filepos,SEEK_SET) != filepos) break;
     /* printf("pos=%X\n",TellBlob(image)); */
 
@@ -967,7 +974,7 @@ MATLAB_KO:
     if(EOFBlob(image)) break;
     if((MagickSizeType) (MATLAB_HDR.ObjectSize+filepos) > GetBlobSize(image))
       goto MATLAB_KO;
-    filepos += MATLAB_HDR.ObjectSize + 4 + 4;
+    filepos += (MagickOffsetType) MATLAB_HDR.ObjectSize + 4 + 4;
 
     if (clone_info != (ImageInfo *) NULL)
       clone_info=DestroyImageInfo(clone_info);
@@ -984,9 +991,13 @@ MATLAB_KO:
     }
 #endif
 
-    if (MATLAB_HDR.DataType!=miMATRIX)
+    if (MATLAB_HDR.DataType != miMATRIX)
       {
         clone_info=DestroyImageInfo(clone_info);
+#if defined(MAGICKCORE_ZLIB_DELEGATE)
+        if (image2 != image)
+          DeleteImageFromList(&image2);
+#endif
         continue;  /* skip another objects. */
       }
 
@@ -1074,7 +1085,7 @@ MATLAB_KO:
         MATLAB_HDR.StructureClass != mxINT64_CLASS &&
         MATLAB_HDR.StructureClass != mxUINT64_CLASS)    /* uint64 + uint64 3D */
       {
-        if ((image2 != (Image*) NULL) && (image2 != (Image *) image))
+        if ((image2 != (Image*) NULL) && (image2 != image))
           {
             CloseBlob(image2);
             DeleteImageFromList(&image2);
@@ -1088,7 +1099,7 @@ MATLAB_KO:
     {
       case 0:
         size = ReadBlobXXXLong(image2);  /* Object name string size */
-        size = 4 * (ssize_t) ((size + 3 + 1) / 4);
+        size = 4 * (((size_t) size + 3 + 1) / 4);
         (void) SeekBlob(image2, size, SEEK_CUR);
         break;
       case 1:
@@ -1106,7 +1117,9 @@ MATLAB_KO:
       (void) LogMagickEvent(CoderEvent,GetMagickModule(),
         "MATLAB_HDR.CellType: %.20g",(double) CellType);
 
-    (void) ReadBlob(image2, 4, (unsigned char *) &size);     /* data size */
+    /* data size */
+    if (ReadBlob(image2, 4, (unsigned char *) &size) != 4)
+      goto MATLAB_KO;
 
     NEXT_FRAME:
     switch (CellType)
@@ -1179,7 +1192,7 @@ RestoreMSCWarning
     image->colors = GetQuantumRange(image->depth);
     if (image->columns == 0 || image->rows == 0)
       goto MATLAB_KO;
-    if((unsigned long)ldblk*MATLAB_HDR.SizeY > MATLAB_HDR.ObjectSize)
+    if((unsigned int)ldblk*MATLAB_HDR.SizeY > MATLAB_HDR.ObjectSize)
       goto MATLAB_KO;
     /* Image is gray when no complex flag is set and 2D Matrix */
     if ((MATLAB_HDR.DimFlag == 8) &&

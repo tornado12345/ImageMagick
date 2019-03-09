@@ -17,13 +17,13 @@
 %                                 March 2000                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -95,15 +95,6 @@
 #else
 #include "lcms.h"
 #endif
-#endif
-#if defined(MAGICKCORE_XML_DELEGATE)
-#  if defined(MAGICKCORE_WINDOWS_SUPPORT)
-#    if !defined(__MINGW32__)
-#      include <win32config.h>
-#    endif
-#  endif
-#  include <libxml/parser.h>
-#  include <libxml/tree.h>
 #endif
 
 /*
@@ -676,7 +667,7 @@ static MagickBooleanType Get8BIMProperty(const Image *image,const char *key,
     count=(ssize_t) ReadPropertyMSBLong(&info,&length);
     if ((count < 0) || ((size_t) count > length))
       {
-        length=0; 
+        length=0;
         continue;
       }
     if ((*name != '\0') && (*name != '#'))
@@ -1093,19 +1084,28 @@ static MagickBooleanType GetEXIFProperty(const Image *image,
       {  0x84e3, "exif:IT8RasterPadding" },
       {  0x84e5, "exif:IT8ColorTable" },
       {  0x8649, "exif:ImageResourceInformation" },
-      {  0x8769, "exif:ExifOffset" },
+      {  0x8769, "exif:ExifOffset" },  /* specs as "Exif IFD Pointer"? */
       {  0x8773, "exif:InterColorProfile" },
       {  0x8822, "exif:ExposureProgram" },
       {  0x8824, "exif:SpectralSensitivity" },
-      {  0x8825, "exif:GPSInfo" },
-      {  0x8827, "exif:ISOSpeedRatings" },
+      {  0x8825, "exif:GPSInfo" }, /* specs as "GPSInfo IFD Pointer"? */
+      {  0x8827, "exif:PhotographicSensitivity" },
       {  0x8828, "exif:OECF" },
       {  0x8829, "exif:Interlace" },
       {  0x882a, "exif:TimeZoneOffset" },
       {  0x882b, "exif:SelfTimerMode" },
+      {  0x8830, "exif:SensitivityType" },
+      {  0x8831, "exif:StandardOutputSensitivity" },
+      {  0x8832, "exif:RecommendedExposureIndex" },
+      {  0x8833, "exif:ISOSpeed" },
+      {  0x8834, "exif:ISOSpeedLatitudeyyy" },
+      {  0x8835, "exif:ISOSpeedLatitudezzz" },
       {  0x9000, "exif:ExifVersion" },
       {  0x9003, "exif:DateTimeOriginal" },
       {  0x9004, "exif:DateTimeDigitized" },
+      {  0x9010, "exif:OffsetTime" },
+      {  0x9011, "exif:OffsetTimeOriginal" },
+      {  0x9012, "exif:OffsetTimeDigitized" },
       {  0x9101, "exif:ComponentsConfiguration" },
       {  0x9102, "exif:CompressedBitsPerPixel" },
       {  0x9201, "exif:ShutterSpeedValue" },
@@ -1121,6 +1121,10 @@ static MagickBooleanType GetEXIFProperty(const Image *image,
       {  0x920b, "exif:FlashEnergy" },
       {  0x920c, "exif:SpatialFrequencyResponse" },
       {  0x920d, "exif:Noise" },
+      {  0x9214, "exif:SubjectArea" },
+      {  0x9290, "exif:SubSecTime" },
+      {  0x9291, "exif:SubSecTimeOriginal" },
+      {  0x9292, "exif:SubSecTimeDigitized" },
       {  0x9211, "exif:ImageNumber" },
       {  0x9212, "exif:SecurityClassification" },
       {  0x9213, "exif:ImageHistory" },
@@ -1128,19 +1132,25 @@ static MagickBooleanType GetEXIFProperty(const Image *image,
       {  0x9215, "exif:ExposureIndex" },
       {  0x9216, "exif:TIFF-EPStandardID" },
       {  0x927c, "exif:MakerNote" },
+      {  0x9286, "exif:UserComment" },
+      {  0x9290, "exif:SubSecTime" },
+      {  0x9291, "exif:SubSecTimeOriginal" },
+      {  0x9292, "exif:SubSecTimeDigitized" },
+      {  0x9400, "exif:Temperature" },
+      {  0x9401, "exif:Humidity" },
+      {  0x9402, "exif:Pressure" },
+      {  0x9403, "exif:WaterDepth" },
+      {  0x9404, "exif:Acceleration" },
+      {  0x9405, "exif:CameraElevationAngle" },
       {  0x9C9b, "exif:WinXP-Title" },
       {  0x9C9c, "exif:WinXP-Comments" },
       {  0x9C9d, "exif:WinXP-Author" },
       {  0x9C9e, "exif:WinXP-Keywords" },
       {  0x9C9f, "exif:WinXP-Subject" },
-      {  0x9286, "exif:UserComment" },
-      {  0x9290, "exif:SubSecTime" },
-      {  0x9291, "exif:SubSecTimeOriginal" },
-      {  0x9292, "exif:SubSecTimeDigitized" },
       {  0xa000, "exif:FlashPixVersion" },
       {  0xa001, "exif:ColorSpace" },
-      {  0xa002, "exif:ExifImageWidth" },
-      {  0xa003, "exif:ExifImageLength" },
+      {  0xa002, "exif:PixelXDimension" },
+      {  0xa003, "exif:PixelYDimension" },
       {  0xa004, "exif:RelatedSoundFile" },
       {  0xa005, "exif:InteroperabilityOffset" },
       {  0xa20b, "exif:FlashEnergy" },
@@ -1169,6 +1179,12 @@ static MagickBooleanType GetEXIFProperty(const Image *image,
       {  0xa40b, "exif:DeviceSettingDescription" },
       {  0xa40c, "exif:SubjectDistanceRange" },
       {  0xa420, "exif:ImageUniqueID" },
+      {  0xa430, "exif:CameraOwnerName" },
+      {  0xa431, "exif:BodySerialNumber" },
+      {  0xa432, "exif:LensSpecification" },
+      {  0xa433, "exif:LensMake" },
+      {  0xa434, "exif:LensModel" },
+      {  0xa435, "exif:LensSerialNumber" },
       {  0xc4a5, "exif:PrintImageMatching" },
       {  0xa500, "exif:Gamma" },
       {  0xc640, "exif:CR2Slice" },
@@ -1203,8 +1219,9 @@ static MagickBooleanType GetEXIFProperty(const Image *image,
       { 0x1001c, "exif:GPSAreaInformation" },
       { 0x1001d, "exif:GPSDateStamp" },
       { 0x1001e, "exif:GPSDifferential" },
+      { 0x1001f, "exif:GPSHPositioningError" },
       { 0x00000, (const char *) NULL }
-    };
+    };  /* http://www.cipa.jp/std/documents/e/DC-008-Translation-2016-E.pdf */
 
   const StringInfo
     *profile;
@@ -1414,8 +1431,8 @@ static MagickBooleanType GetEXIFProperty(const Image *image,
         format;
 
       ssize_t
-        number_bytes,
-        components;
+        components,
+        number_bytes;
 
       q=(unsigned char *) (directory+(12*entry)+2);
       if (q > (exif+length-12))
@@ -1677,21 +1694,45 @@ static MagickBooleanType GetICCProperty(const Image *image,const char *property,
         char
           info[MagickPathExtent];
 
-        if (cmsGetProfileInfoASCII(icc_profile,cmsInfoDescription,"en","US",
-              info,MagickPathExtent) != 0)
-          (void) SetImageProperty((Image *) image,"icc:description",info,
-            exception);
-        if (cmsGetProfileInfoASCII(icc_profile,cmsInfoManufacturer,"en","US",
-              info,MagickPathExtent) != 0)
-          (void) SetImageProperty((Image *) image,"icc:manufacturer",info,
-            exception);
-        if (cmsGetProfileInfoASCII(icc_profile,cmsInfoModel,"en","US",info,
-              MagickPathExtent) != 0)
-          (void) SetImageProperty((Image *) image,"icc:model",info,exception);
-        if (cmsGetProfileInfoASCII(icc_profile,cmsInfoCopyright,"en","US",
-              info,MagickPathExtent) != 0)
-          (void) SetImageProperty((Image *) image,"icc:copyright",info,
-            exception);
+        unsigned int
+          extent;
+
+        (void) memset(info,0,sizeof(info));
+        extent=cmsGetProfileInfoASCII(icc_profile,cmsInfoDescription,"en","US",
+          NULL,0);
+        if (extent != 0)
+          {
+            extent=cmsGetProfileInfoASCII(icc_profile,cmsInfoDescription,"en",
+              "US",info,MagickMin(MagickPathExtent-1,extent));
+            (void) SetImageProperty((Image *) image,"icc:description",info,
+              exception);
+         }
+        extent=cmsGetProfileInfoASCII(icc_profile,cmsInfoManufacturer,"en","US",
+          NULL,0);
+        if (extent != 0)
+          {
+            extent=cmsGetProfileInfoASCII(icc_profile,cmsInfoManufacturer,"en",
+              "US",info,MagickMin(MagickPathExtent-1,extent));
+            (void) SetImageProperty((Image *) image,"icc:manufacturer",info,
+              exception);
+          }
+        extent=cmsGetProfileInfoASCII(icc_profile,cmsInfoModel,"en","US",
+          NULL,0);
+        if (extent != 0)
+          {
+            extent=cmsGetProfileInfoASCII(icc_profile,cmsInfoModel,"en","US",
+              info,MagickMin(MagickPathExtent-1,extent));
+            (void) SetImageProperty((Image *) image,"icc:model",info,exception);
+          }
+        extent=cmsGetProfileInfoASCII(icc_profile,cmsInfoCopyright,"en","US",
+          NULL,0);
+        if (extent != 0)
+          {
+            extent=cmsGetProfileInfoASCII(icc_profile,cmsInfoCopyright,"en",
+              "US",info,MagickMin(MagickPathExtent-1,extent));
+            (void) SetImageProperty((Image *) image,"icc:copyright",info,
+              exception);
+          }
 #endif
         (void) cmsCloseProfile(icc_profile);
       }
@@ -1711,29 +1752,6 @@ static MagickBooleanType SkipXMPValue(const char *value)
     value++;
   }
   return(MagickTrue);
-}
-
-static MagickBooleanType ValidateXMPProfile(const char *profile,
-  const size_t length)
-{
-#if defined(MAGICKCORE_XML_DELEGATE)
-  {
-    xmlDocPtr
-      document;
-
-    /*
-      Parse XML profile.
-    */
-    document=xmlReadMemory(profile,(int) length,"xmp.xml",NULL,
-      XML_PARSE_NOERROR | XML_PARSE_NOWARNING);
-    if (document == (xmlDocPtr) NULL)
-      return(MagickFalse);
-    xmlFreeDoc(document);
-    return(MagickTrue);
-  }
-#else
-  return(MagickFalse);
-#endif
 }
 
 static MagickBooleanType GetXMPProperty(const Image *image,const char *property)
@@ -1773,11 +1791,6 @@ static MagickBooleanType GetXMPProperty(const Image *image,const char *property)
   xmp_profile=StringInfoToString(profile);
   if (xmp_profile == (char *) NULL)
     return(MagickFalse);
-  if (ValidateXMPProfile(xmp_profile,GetStringInfoLength(profile)) == MagickFalse)
-    {
-      xmp_profile=DestroyString(xmp_profile);
-      return(MagickFalse);
-    }
   for (p=xmp_profile; *p != '\0'; p++)
     if ((*p == '<') && (*(p+1) == 'x'))
       break;
@@ -2158,14 +2171,14 @@ static char *TraceSVGClippath(const unsigned char *blob,size_t length,
               Handle special cases when Bezier curves are used to describe
               corners and straight lines.
             */
-            if ((last[1].x == last[2].x) && (last[1].y == last[2].y) &&
+            if (((last[1].x == last[2].x) || (last[1].y == last[2].y)) &&
                 (point[0].x == point[1].x) && (point[0].y == point[1].y))
               (void) FormatLocaleString(message,MagickPathExtent,
                 "L %g %g\n",point[1].x,point[1].y);
             else
               (void) FormatLocaleString(message,MagickPathExtent,
-                "C %g %g %g %g %g %g\n",last[2].x,
-                last[2].y,point[0].x,point[0].y,point[1].x,point[1].y);
+                "C %g %g %g %g %g %g\n",last[2].x,last[2].y,point[0].x,
+                point[0].y,point[1].x,point[1].y);
             for (i=0; i < 3; i++)
               last[i]=point[i];
           }
@@ -2181,14 +2194,14 @@ static char *TraceSVGClippath(const unsigned char *blob,size_t length,
               Same special handling as above except we compare to the
               first point in the path and close the path.
             */
-            if ((last[1].x == last[2].x) && (last[1].y == last[2].y) &&
+            if (((last[1].x == last[2].x) || (last[1].y == last[2].y)) &&
                 (first[0].x == first[1].x) && (first[0].y == first[1].y))
               (void) FormatLocaleString(message,MagickPathExtent,
                 "L %g %g Z\n",first[1].x,first[1].y);
             else
               (void) FormatLocaleString(message,MagickPathExtent,
-                "C %g %g %g %g %g %g Z\n",last[2].x,
-                last[2].y,first[0].x,first[0].y,first[1].x,first[1].y);
+                "C %g %g %g %g %g %g Z\n",last[2].x,last[2].y,first[0].x,
+                first[0].y,first[1].x,first[1].y);
             (void) ConcatenateString(&path,message);
             in_subpath=MagickFalse;
           }
@@ -2342,6 +2355,7 @@ MagickExport const char *GetImageProperty(const Image *image,
 %    %y   y resolution (density)
 %    %z   image depth (as read in unless modified, image save depth)
 %    %A   image transparency channel enabled (true/false)
+%    %B   file size of image in bytes
 %    %C   image compression type
 %    %D   image GIF dispose method
 %    %G   original image size (%wx%h; before any resizes)
@@ -2566,7 +2580,7 @@ static const char *GetMagickPropertyLetter(ImageInfo *image_info,
 #else
       WarnNoImageReturn("\"%%%c\"",letter);
       (void) FormatLocaleString(value,MagickPathExtent,"%.20g",(double)
-         image->scene);
+        image->scene);
 #endif
       break;
     }
@@ -2617,6 +2631,16 @@ static const char *GetMagickPropertyLetter(ImageInfo *image_info,
       WarnNoImageReturn("\"%%%c\"",letter);
       string=CommandOptionToMnemonic(MagickPixelTraitOptions,(ssize_t)
         image->alpha_trait);
+      break;
+    }
+    case 'B':  /* image size read in - in bytes */
+    {
+      WarnNoImageReturn("\"%%%c\"",letter);
+      (void) FormatLocaleString(value,MagickPathExtent,"%.20g",(double)
+        image->extent);
+      if (image->extent == 0)
+        (void) FormatLocaleString(value,MagickPathExtent,"%.20g",(double)
+          GetBlobSize(image));
       break;
     }
     case 'C': /* Image compression method.  */
@@ -2812,6 +2836,7 @@ MagickExport const char *GetMagickProperty(ImageInfo *image_info,
         }
       if (LocaleCompare("bit-depth",property) == 0)
         {
+          WarnNoImageReturn("\"%%[%s]\"",property);
           (void) FormatLocaleString(value,MagickPathExtent,"%.20g",(double)
             GetImageDepth(image,exception));
           break;
@@ -2830,6 +2855,14 @@ MagickExport const char *GetMagickProperty(ImageInfo *image_info,
           LocaleLower(value);
           if( image->alpha_trait != UndefinedPixelTrait )
             (void) ConcatenateMagickString(value,"a",MagickPathExtent);
+          break;
+        }
+      if (LocaleCompare("colors",property) == 0)
+        {
+          WarnNoImageReturn("\"%%[%s]\"",property);
+          image->colors=GetNumberColors(image,(FILE *) NULL,exception);
+          (void) FormatLocaleString(value,MaxTextExtent,"%.20g",(double)
+            image->colors);
           break;
         }
       if (LocaleCompare("colorspace",property) == 0)
@@ -2934,6 +2967,7 @@ MagickExport const char *GetMagickProperty(ImageInfo *image_info,
         }
       if (LocaleCompare("interlace",property) == 0)
         {
+          WarnNoImageReturn("\"%%[%s]\"",property);
           string=CommandOptionToMnemonic(MagickInterlaceOptions,(ssize_t)
             image->interlace);
           break;
@@ -3051,6 +3085,7 @@ MagickExport const char *GetMagickProperty(ImageInfo *image_info,
           cmsHPROFILE
             icc_profile;
 
+          WarnNoImageReturn("\"%%[%s]\"",property);
           profile=GetImageProfile(image,property+8);
           if (profile == (StringInfo *) NULL)
             break;
@@ -3068,11 +3103,28 @@ MagickExport const char *GetMagickProperty(ImageInfo *image_info,
             }
       }
 #endif
+      if (LocaleCompare("printsize.x",property) == 0)
+        {
+          WarnNoImageReturn("\"%%[%s]\"",property);
+          (void) FormatLocaleString(value,MagickPathExtent,"%.*g",
+            GetMagickPrecision(),PerceptibleReciprocal(image->resolution.x)*
+              image->columns);
+          break;
+        }
+      if (LocaleCompare("printsize.y",property) == 0)
+        {
+          WarnNoImageReturn("\"%%[%s]\"",property);
+          (void) FormatLocaleString(value,MagickPathExtent,"%.*g",
+            GetMagickPrecision(),PerceptibleReciprocal(image->resolution.y)*
+              image->rows);
+          break;
+        }
       if (LocaleCompare("profiles",property) == 0)
         {
           const char
             *name;
 
+          WarnNoImageReturn("\"%%[%s]\"",property);
           ResetImageProfileIterator(image);
           name=GetNextImageProfile(image);
           if (name != (char *) NULL)
@@ -3347,7 +3399,13 @@ DisableMSCWarning(4127) \
       interpret_text=(char *) ResizeQuantumMemory(interpret_text,extent+ \
         MaxTextExtent,sizeof(*interpret_text)); \
       if (interpret_text == (char *) NULL) \
-        return((char *) NULL); \
+        { \
+          if (property_image != image) \
+            property_image=DestroyImage(property_image); \
+          if (property_info != image_info) \
+            property_info=DestroyImageInfo(property_info); \
+          return((char *) NULL); \
+        } \
       q=interpret_text+strlen(interpret_text); \
    } \
 } \
@@ -3363,7 +3421,13 @@ DisableMSCWarning(4127) \
       interpret_text=(char *) ResizeQuantumMemory(interpret_text,extent+ \
         MaxTextExtent,sizeof(*interpret_text)); \
       if (interpret_text == (char *) NULL) \
-        return((char *) NULL); \
+        { \
+          if (property_image != image) \
+            property_image=DestroyImage(property_image); \
+          if (property_info != image_info) \
+            property_info=DestroyImageInfo(property_info); \
+          return((char *) NULL); \
+        } \
       q=interpret_text+strlen(interpret_text); \
      } \
    q+=FormatLocaleString(q,extent,"%s=%s\n",(key),(value)); \
@@ -3380,7 +3444,13 @@ DisableMSCWarning(4127) \
       interpret_text=(char *) ResizeQuantumMemory(interpret_text,extent+ \
         MaxTextExtent,sizeof(*interpret_text)); \
       if (interpret_text == (char *) NULL) \
-        return((char *) NULL); \
+        { \
+          if (property_image != image) \
+            property_image=DestroyImage(property_image); \
+          if (property_info != image_info) \
+            property_info=DestroyImageInfo(property_info); \
+          return((char *) NULL); \
+        } \
       q=interpret_text+strlen(interpret_text); \
     } \
   (void) CopyMagickString(q,(string),extent); \
@@ -3390,6 +3460,12 @@ RestoreMSCWarning
 
   char
     *interpret_text;
+
+  Image
+    *property_image;
+
+  ImageInfo
+    *property_info;
 
   MagickBooleanType
     number;
@@ -3403,13 +3479,14 @@ RestoreMSCWarning
   size_t
     extent;  /* allocated length of interpret_text */
 
-  assert(image == NULL || image->signature == MagickCoreSignature);
-  assert(image_info == NULL || image_info->signature == MagickCoreSignature);
   if ((image != (Image *) NULL) && (image->debug != MagickFalse))
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
   else
    if ((image_info != (ImageInfo *) NULL) && (image_info->debug != MagickFalse))
-     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s","no-image");
+     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",
+       image_info->filename);
+   else
+     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s","no image");
   if (embed_text == (const char *) NULL)
     return(ConstantString(""));
   p=embed_text;
@@ -3436,6 +3513,18 @@ RestoreMSCWarning
   /*
     Translate any embedded format characters.
   */
+  if (image_info != (ImageInfo *) NULL)
+    property_info=image_info;
+  else
+    property_info=CloneImageInfo(image_info);
+  if ((image != (Image *) NULL) && (image->columns != 0) && (image->rows != 0))
+    property_image=image;
+  else
+    {
+      property_image=AcquireImage(image_info,exception);
+      (void) SetImageExtent(property_image,1,1,exception);
+      (void) SetImageBackgroundColor(property_image,exception);
+    }
   interpret_text=AcquireString(embed_text); /* new string with extra space */
   extent=MagickPathExtent;                     /* allocated space in string */
   number=MagickFalse;                       /* is last char a number? */
@@ -3545,14 +3634,12 @@ RestoreMSCWarning
             p--;      /* back up one */
             continue;
           }
-        string=GetMagickPropertyLetter(image_info,image,*p, exception);
+        string=GetMagickPropertyLetter(property_info,image,*p,exception);
         if (string != (char *) NULL)
           {
             AppendString2Text(string);
-            if (image != (Image *) NULL)
-              (void) DeleteImageArtifact(image,"get-property");
-            if (image_info != (ImageInfo *) NULL)
-              (void) DeleteImageOption(image_info,"get-property");
+            (void) DeleteImageArtifact(property_image,"get-property");
+            (void) DeleteImageOption(property_info,"get-property");
             continue;
           }
         (void) ThrowMagickException(exception,GetMagickModule(),OptionWarning,
@@ -3584,7 +3671,7 @@ RestoreMSCWarning
             "UnknownImageProperty","\"%%[]\"");
           break;
         }
-      for (len=0; len<(MagickPathExtent-1L) && (*p != '\0');)
+      for (len=0; len < (MagickPathExtent-1L) && (*p != '\0'); )
       {
         if ((*p == '\\') && (*(p+1) != '\0'))
           {
@@ -3619,6 +3706,10 @@ RestoreMSCWarning
           (void) ThrowMagickException(exception,GetMagickModule(),OptionError,
             "UnbalancedBraces","\"%%[%s\"",pattern);
           interpret_text=DestroyString(interpret_text);
+          if (property_image != image)
+            property_image=DestroyImage(property_image);
+          if (property_info != image_info)
+            property_info=DestroyImageInfo(property_info);
           return((char *) NULL);
         }
       /*
@@ -3638,16 +3729,8 @@ RestoreMSCWarning
           /*
             FX - value calculator.
           */
-          if (image == (Image *) NULL )
-            {
-              (void) ThrowMagickException(exception,GetMagickModule(),
-                OptionWarning,"NoImageForProperty","\"%%[%s]\"",pattern);
-              continue; /* else no image to retrieve artifact */
-            }
-          if ((image->columns == 0) || (image->rows == 0))
-            break;
-          fx_info=AcquireFxInfo(image,pattern+3,exception);
-          status=FxEvaluateChannelExpression(fx_info,IntensityPixelChannel,0,0,
+          fx_info=AcquireFxInfo(property_image,pattern+3,exception);
+          status=FxEvaluateChannelExpression(fx_info,CompositePixelChannel,0,0,
             &value,exception);
           fx_info=DestroyFxInfo(fx_info);
           if (status != MagickFalse)
@@ -3678,16 +3761,8 @@ RestoreMSCWarning
           /*
             Pixel - color value calculator.
           */
-          if (image == (Image *) NULL)
-            {
-              (void) ThrowMagickException(exception,GetMagickModule(),
-                OptionWarning,"NoImageForProperty","\"%%[%s]\"",pattern);
-              continue; /* else no image to retrieve artifact */
-            }
-          if ((image->columns == 0) || (image->rows == 0))
-            break;
-          GetPixelInfo(image,&pixel);
-          fx_info=AcquireFxInfo(image,pattern+4,exception);
+          GetPixelInfo(property_image,&pixel);
+          fx_info=AcquireFxInfo(property_image,pattern+4,exception);
           status=FxEvaluateChannelExpression(fx_info,RedPixelChannel,0,0,
             &value,exception);
           pixel.red=(double) QuantumRange*value;
@@ -3697,7 +3772,7 @@ RestoreMSCWarning
           status&=FxEvaluateChannelExpression(fx_info,BluePixelChannel,0,0,
             &value,exception);
           pixel.blue=(double) QuantumRange*value;
-          if (image->colorspace == CMYKColorspace)
+          if (property_image->colorspace == CMYKColorspace)
             {
               status&=FxEvaluateChannelExpression(fx_info,BlackPixelChannel,0,0,
                 &value,exception);
@@ -3713,7 +3788,8 @@ RestoreMSCWarning
                 hex[MagickPathExtent],
                 name[MagickPathExtent];
 
-              (void) QueryColorname(image,&pixel,SVGCompliance,name,exception);
+              (void) QueryColorname(property_image,&pixel,SVGCompliance,name,
+                exception);
               GetColorTuple(&pixel,MagickTrue,hex);
               AppendString2Text(hex+1);
             }
@@ -3736,14 +3812,8 @@ RestoreMSCWarning
           /*
             Pixel - color value calculator.
           */
-          if (image == (Image *) NULL)
-            {
-              (void) ThrowMagickException(exception,GetMagickModule(),
-                OptionWarning,"NoImageForProperty","\"%%[%s]\"",pattern);
-              continue; /* else no image to retrieve artifact */
-            }
-          GetPixelInfo(image,&pixel);
-          fx_info=AcquireFxInfo(image,pattern+6,exception);
+          GetPixelInfo(property_image,&pixel);
+          fx_info=AcquireFxInfo(property_image,pattern+6,exception);
           status=FxEvaluateChannelExpression(fx_info,RedPixelChannel,0,0,
             &value,exception);
           pixel.red=(double) QuantumRange*value;
@@ -3753,7 +3823,7 @@ RestoreMSCWarning
           status&=FxEvaluateChannelExpression(fx_info,BluePixelChannel,0,0,
             &value,exception);
           pixel.blue=(double) QuantumRange*value;
-          if (image->colorspace == CMYKColorspace)
+          if (property_image->colorspace == CMYKColorspace)
             {
               status&=FxEvaluateChannelExpression(fx_info,BlackPixelChannel,0,0,
                 &value,exception);
@@ -3768,7 +3838,8 @@ RestoreMSCWarning
               char
                 name[MagickPathExtent];
 
-              (void) QueryColorname(image,&pixel,SVGCompliance,name,exception);
+              (void) QueryColorname(property_image,&pixel,SVGCompliance,name,
+                exception);
               AppendString2Text(name);
             }
           continue;
@@ -3778,26 +3849,20 @@ RestoreMSCWarning
           /*
             Option - direct global option lookup (with globbing).
           */
-          if (image_info == (ImageInfo *) NULL )
-            {
-              (void) ThrowMagickException(exception,GetMagickModule(),
-                OptionWarning,"NoImageForProperty","\"%%[%s]\"",pattern);
-              continue; /* else no image to retrieve artifact */
-            }
           if (IsGlob(pattern+7) != MagickFalse)
             {
-              ResetImageOptionIterator(image_info);
-              while ((key=GetNextImageOption(image_info)) != (const char *) NULL)
+              ResetImageOptionIterator(property_info);
+              while ((key=GetNextImageOption(property_info)) != (const char *) NULL)
                 if (GlobExpression(key,pattern+7,MagickTrue) != MagickFalse)
                   {
-                    string=GetImageOption(image_info,key);
+                    string=GetImageOption(property_info,key);
                     if (string != (const char *) NULL)
                       AppendKeyValue2Text(key,string);
                     /* else - assertion failure? key found but no string value! */
                   }
               continue;
             }
-          string=GetImageOption(image_info,pattern+7);
+          string=GetImageOption(property_info,pattern+7);
           if (string == (char *) NULL)
             goto PropertyLookupFailure; /* no artifact of this specifc name */
           AppendString2Text(string);
@@ -3808,26 +3873,20 @@ RestoreMSCWarning
           /*
             Artifact - direct image artifact lookup (with glob).
           */
-          if (image == (Image *) NULL)
-            {
-              (void) ThrowMagickException(exception,GetMagickModule(),
-                OptionWarning,"NoImageForProperty","\"%%[%s]\"",pattern);
-              continue; /* else no image to retrieve artifact */
-            }
           if (IsGlob(pattern+9) != MagickFalse)
             {
-              ResetImageArtifactIterator(image);
-              while ((key=GetNextImageArtifact(image)) != (const char *) NULL)
+              ResetImageArtifactIterator(property_image);
+              while ((key=GetNextImageArtifact(property_image)) != (const char *) NULL)
               if (GlobExpression(key,pattern+9,MagickTrue) != MagickFalse)
                 {
-                  string=GetImageArtifact(image,key);
+                  string=GetImageArtifact(property_image,key);
                   if (string != (const char *) NULL)
                     AppendKeyValue2Text(key,string);
                   /* else - assertion failure? key found but no string value! */
                 }
               continue;
             }
-          string=GetImageArtifact(image,pattern+9);
+          string=GetImageArtifact(property_image,pattern+9);
           if (string == (char *) NULL)
             goto PropertyLookupFailure; /* no artifact of this specifc name */
           AppendString2Text(string);
@@ -3838,48 +3897,37 @@ RestoreMSCWarning
           /*
             Property - direct image property lookup (with glob).
           */
-          if (image == (Image *) NULL)
-            {
-              (void) ThrowMagickException(exception,GetMagickModule(),
-                OptionWarning,"NoImageForProperty","\"%%[%s]\"",pattern);
-              continue; /* else no image to retrieve artifact */
-            }
           if (IsGlob(pattern+9) != MagickFalse)
             {
-              ResetImagePropertyIterator(image);
-              while ((key=GetNextImageProperty(image)) != (const char *) NULL)
+              ResetImagePropertyIterator(property_image);
+              while ((key=GetNextImageProperty(property_image)) != (const char *) NULL)
                 if (GlobExpression(key,pattern,MagickTrue) != MagickFalse)
                   {
-                    string=GetImageProperty(image,key,exception);
+                    string=GetImageProperty(property_image,key,exception);
                     if (string != (const char *) NULL)
                       AppendKeyValue2Text(key,string);
                     /* else - assertion failure? */
                   }
               continue;
             }
-          string=GetImageProperty(image,pattern+9,exception);
+          string=GetImageProperty(property_image,pattern+9,exception);
           if (string == (char *) NULL)
             goto PropertyLookupFailure; /* no artifact of this specifc name */
           AppendString2Text(string);
           continue;
         }
-      if (image != (Image *) NULL)
+      /*
+        Properties without special prefix.  This handles attributes,
+        properties, and profiles such as %[exif:...].  Note the profile
+        properties may also include a glob expansion pattern.
+      */
+      string=GetImageProperty(property_image,pattern,exception);
+      if (string != (const char *) NULL)
         {
-          /*
-            Properties without special prefix.  This handles attributes,
-            properties, and profiles such as %[exif:...].  Note the profile
-            properties may also include a glob expansion pattern.
-          */
-          string=GetImageProperty(image,pattern,exception);
-          if (string != (const char *) NULL)
-            {
-              AppendString2Text(string);
-              if (image != (Image *) NULL)
-                (void)DeleteImageArtifact(image,"get-property");
-              if (image_info != (ImageInfo *) NULL)
-                (void)DeleteImageOption(image_info,"get-property");
-              continue;
-            }
+          AppendString2Text(string);
+          (void)DeleteImageArtifact(property_image,"get-property");
+          (void)DeleteImageOption(property_info,"get-property");
+          continue;
         }
       if (IsGlob(pattern) != MagickFalse)
         {
@@ -3887,13 +3935,11 @@ RestoreMSCWarning
             Handle property 'glob' patterns such as:
             %[*] %[user:array_??] %[filename:e*]>
           */
-          if (image == (Image *) NULL)
-            continue; /* else no image to retrieve proprty - no list */
-          ResetImagePropertyIterator(image);
-          while ((key=GetNextImageProperty(image)) != (const char *) NULL)
+          ResetImagePropertyIterator(property_image);
+          while ((key=GetNextImageProperty(property_image)) != (const char *) NULL)
             if (GlobExpression(key,pattern,MagickTrue) != MagickFalse)
               {
-                string=GetImageProperty(image,key,exception);
+                string=GetImageProperty(property_image,key,exception);
                 if (string != (const char *) NULL)
                   AppendKeyValue2Text(key,string);
                 /* else - assertion failure? */
@@ -3905,7 +3951,7 @@ RestoreMSCWarning
         %[basename] %[denisty] %[delay].  Also handles a braced single
         letter: %[b] %[G] %[g].
       */
-      string=GetMagickProperty(image_info,image,pattern,exception);
+      string=GetMagickProperty(property_info,property_image,pattern,exception);
       if (string != (const char *) NULL)
         {
           AppendString2Text(string);
@@ -3915,28 +3961,21 @@ RestoreMSCWarning
         Look for a per-image artifact. This includes option lookup
         (FUTURE: interpreted according to image).
       */
-      if (image != (Image *) NULL)
+      string=GetImageArtifact(property_image,pattern);
+      if (string != (char *) NULL)
         {
-          string=GetImageArtifact(image,pattern);
-          if (string != (char *) NULL)
-            {
-              AppendString2Text(string);
-              continue;
-            }
+          AppendString2Text(string);
+          continue;
         }
-      else
-        if (image_info != (ImageInfo *) NULL)
-          {
-            /*
-              No image, so direct 'option' lookup (no delayed percent escapes).
-            */
-            string=GetImageOption(image_info,pattern);
-            if (string != (char *) NULL)
-              {
-                AppendString2Text(string);
-                continue;
-              }
-          }
+      /*
+        No image, so direct 'option' lookup (no delayed percent escapes).
+      */
+      string=GetImageOption(property_info,pattern);
+      if (string != (char *) NULL)
+        {
+          AppendString2Text(string);
+          continue;
+        }
 PropertyLookupFailure:
       /*
         Failed to find any match anywhere!
@@ -3953,6 +3992,10 @@ PropertyLookupFailure:
     }
   }
   *q='\0';
+  if (property_image != image)
+    property_image=DestroyImage(property_image);
+  if (property_info != image_info)
+    property_info=DestroyImageInfo(property_info);
   return(interpret_text);
 }
 

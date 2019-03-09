@@ -17,13 +17,13 @@
 %                                 June 2001                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -378,7 +378,10 @@ static Image *ReadJP2Image(const ImageInfo *image_info,ExceptionInfo *exception)
   else
     if (image->ping == MagickFalse)
       {
-        jp2_status=opj_decode(jp2_codec,jp2_stream,jp2_image);
+        jp2_status=opj_set_decode_area(jp2_codec,jp2_image,0,0,
+          jp2_image->comps[0].w-1,jp2_image->comps[0].h-1);
+        if (jp2_status != 0)
+          jp2_status=opj_decode(jp2_codec,jp2_stream,jp2_image);
         if (jp2_status != 0)
           jp2_status=opj_end_decompress(jp2_codec,jp2_stream);
       }
@@ -525,6 +528,8 @@ static Image *ReadJP2Image(const ImageInfo *image_info,ExceptionInfo *exception)
   opj_destroy_codec(jp2_codec);
   opj_image_destroy(jp2_image);
   (void) CloseBlob(image);
+  if ((image_info->number_scenes != 0) && (image_info->scene != 0))
+    AppendImageToList(&image,CloneImage(image,0,0,MagickTrue,exception));
   return(GetFirstImageInList(image));
 }
 #endif

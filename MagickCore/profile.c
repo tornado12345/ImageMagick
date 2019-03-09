@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -75,7 +75,16 @@
 #include "lcms2.h"
 #endif
 #endif
-
+#if defined(MAGICKCORE_XML_DELEGATE)
+#  if defined(MAGICKCORE_WINDOWS_SUPPORT)
+#    if !defined(__MINGW32__)
+#      include <win32config.h>
+#    endif
+#  endif
+#  include <libxml/parser.h>
+#  include <libxml/tree.h>
+#endif
+
 /*
   Definitions
 */
@@ -421,7 +430,8 @@ static cmsHTRANSFORM *DestroyTransformThreadSet(cmsHTRANSFORM *transform)
 static cmsHTRANSFORM *AcquireTransformThreadSet(Image *image,
   const cmsHPROFILE source_profile,const cmsUInt32Number source_type,
   const cmsHPROFILE target_profile,const cmsUInt32Number target_type,
-  const int intent,const cmsUInt32Number flags)
+  const int intent,const cmsUInt32Number flags,
+  CMSExceptionInfo *cms_exception)
 {
   cmsHTRANSFORM
     *transform;
@@ -440,8 +450,8 @@ static cmsHTRANSFORM *AcquireTransformThreadSet(Image *image,
   (void) memset(transform,0,number_threads*sizeof(*transform));
   for (i=0; i < (ssize_t) number_threads; i++)
   {
-    transform[i]=cmsCreateTransformTHR((cmsContext) image,source_profile,
-      source_type,target_profile,target_type,intent,flags);
+    transform[i]=cmsCreateTransformTHR((cmsContext) cms_exception,
+      source_profile,source_type,target_profile,target_type,intent,flags);
     if (transform[i] == (cmsHTRANSFORM) NULL)
       return(DestroyTransformThreadSet(transform));
   }
@@ -948,6 +958,7 @@ MagickExport MagickBooleanType ProfileImage(Image *image,const char *name,
 #if defined(LCMSHDRI)
             source_scale=1.0;
 #endif
+            source_colorspace=sRGBColorspace;
             source_channels=3;
             switch (cmsGetColorSpace(source_profile))
             {
@@ -1123,7 +1134,8 @@ MagickExport MagickBooleanType ProfileImage(Image *image,const char *name,
               flags|=cmsFLAGS_BLACKPOINTCOMPENSATION;
 #endif
             transform=AcquireTransformThreadSet(image,source_profile,
-              source_type,target_profile,target_type,intent,flags);
+              source_type,target_profile,target_type,intent,flags,
+	      &cms_exception);
             if (transform == (cmsHTRANSFORM *) NULL)
               ThrowProfileException(ImageError,"UnableToCreateColorTransform",
                 name);
@@ -1233,9 +1245,10 @@ MagickExport MagickBooleanType ProfileImage(Image *image,const char *name,
                     proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-                  #pragma omp critical (MagickCore_ProfileImage)
+                  #pragma omp atomic
 #endif
-                  proceed=SetImageProgress(image,ProfileImageTag,progress++,
+                  progress++;
+                  proceed=SetImageProgress(image,ProfileImageTag,progress,
                     image->rows);
                   if (proceed == MagickFalse)
                     status=MagickFalse;
@@ -1692,6 +1705,29 @@ static void GetProfilesFromResourceBlock(Image *image,
   }
 }
 
+static MagickBooleanType ValidateXMPProfile(const StringInfo *profile)
+{
+#if defined(MAGICKCORE_XML_DELEGATE)
+  {
+    xmlDocPtr
+      document;
+    
+    /*
+      Parse XML profile.
+    */
+    document=xmlReadMemory((const char *) GetStringInfoDatum(profile),(int)
+      GetStringInfoLength(profile),"xmp.xml",NULL,XML_PARSE_NOERROR |
+      XML_PARSE_NOWARNING);
+    if (document == (xmlDocPtr) NULL)
+      return(MagickFalse);
+    xmlFreeDoc(document);
+    return(MagickTrue);
+  }
+#else
+  return(MagickTrue);
+#endif
+}
+
 static MagickBooleanType SetImageProfileInternal(Image *image,const char *name,
   const StringInfo *profile,const MagickBooleanType recursive,
   ExceptionInfo *exception)
@@ -1707,6 +1743,13 @@ static MagickBooleanType SetImageProfileInternal(Image *image,const char *name,
   assert(image->signature == MagickCoreSignature);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
+  if ((LocaleCompare(name,"xmp") == 0) &&
+      (ValidateXMPProfile(profile) == MagickFalse))
+    {
+      (void) ThrowMagickException(exception,GetMagickModule(),ImageWarning,
+        "CorruptImageProfile","`%s'",name);
+      return(MagickTrue);
+    }
   if (image->profiles == (SplayTreeInfo *) NULL)
     image->profiles=NewSplayTree(CompareSplayTreeString,RelinquishMagickMemory,
       DestroyProfile);
@@ -2120,13 +2163,15 @@ MagickBooleanType SyncExifProfile(Image *image,StringInfo *profile)
         case 0x011a:
         {
           (void) WriteProfileLong(endian,(size_t) (image->resolution.x+0.5),p);
-          (void) WriteProfileLong(endian,1UL,p+4);
+          if (number_bytes == 8)
+            (void) WriteProfileLong(endian,1UL,p+4);
           break;
         }
         case 0x011b:
         {
           (void) WriteProfileLong(endian,(size_t) (image->resolution.y+0.5),p);
-          (void) WriteProfileLong(endian,1UL,p+4);
+          if (number_bytes == 8)
+            (void) WriteProfileLong(endian,1UL,p+4);
           break;
         }
         case 0x0112:

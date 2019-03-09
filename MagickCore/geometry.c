@@ -17,13 +17,13 @@
 %                              January 2003                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -229,7 +229,8 @@ MagickExport MagickStatusType GetGeometry(const char *geometry,ssize_t *x,
   if ((*p != '+') && (*p != '-'))
     {
       c=(int) ((unsigned char) *q);
-      if ((c == 215) || (*q == 'x') || (*q == 'X') || (*q == '\0'))
+      if ((c == 215) || (*q == 'x') || (*q == 'X') || (*q == ':') ||
+          (*q == '\0'))
         {
           /*
             Parse width.
@@ -249,7 +250,7 @@ MagickExport MagickStatusType GetGeometry(const char *geometry,ssize_t *x,
   if ((*p != '+') && (*p != '-'))
     {
       c=(int) ((unsigned char) *p);
-      if ((c == 215) || (*p == 'x') || (*p == 'X'))
+      if ((c == 215) || (*p == 'x') || (*p == 'X') || (*p == ':'))
         {
           p++;
           if ((*p != '+') && (*p != '-'))
@@ -471,7 +472,7 @@ MagickExport char *GetPageGeometry(const char *page_geometry)
   {
     int
       status;
-    
+
     status=LocaleNCompare(PageSizes[i].name,page_geometry,PageSizes[i].extent);
     if (status == 0)
       {
@@ -1001,8 +1002,8 @@ MagickExport MagickStatusType ParseGeometry(const char *geometry,
   if (LocaleNCompare(p,"0x",2) == 0)
     (void) strtol(p,&q,10);
   c=(int) ((unsigned char) *q);
-  if ((c == 215) || (*q == 'x') || (*q == 'X') || (*q == ',') ||
-      (*q == '/') || (*q == ':') || (*q =='\0'))
+  if ((c == 215) || (*q == 'x') || (*q == 'X') || (*q == ':') ||
+      (*q == ',') || (*q == '/') || (*q =='\0'))
     {
       /*
         Parse rho.
@@ -1020,8 +1021,8 @@ MagickExport MagickStatusType ParseGeometry(const char *geometry,
     }
   q=p;
   c=(int) ((unsigned char) *p);
-  if ((c == 215) || (*p == 'x') || (*p == 'X') || (*p == ',') || (*p == '/') ||
-      (*p == ':'))
+  if ((c == 215) || (*p == 'x') || (*p == 'X') || (*p == ':') || (*p == ',') ||
+      (*p == '/'))
     {
       /*
         Parse sigma.
@@ -1030,8 +1031,8 @@ MagickExport MagickStatusType ParseGeometry(const char *geometry,
       while (isspace((int) ((unsigned char) *p)) != 0)
         p++;
       c=(int) ((unsigned char) *q);
-      if (((c != 215) && (*q != 'x') && (*q != 'X')) || ((*p != '+') &&
-          (*p != '-')))
+      if (((c != 215) && (*q != 'x') && (*q != 'X') && (*q != ':')) ||
+          ((*p != '+') && (*p != '-')))
         {
           q=p;
           value=StringToDouble(p,&p);
@@ -1130,16 +1131,44 @@ MagickExport MagickStatusType ParseGeometry(const char *geometry,
       if (((flags & XiValue) != 0) && (geometry_info->xi == 0.0))
         geometry_info->sigma=2.0;
     }
-  if (((flags & SigmaValue) == 0) && ((flags & XiValue) != 0) &&
-      ((flags & PsiValue) == 0))
+  if (((flags & RhoValue) != 0) && ((flags & SigmaValue) == 0) && 
+      ((flags & XiValue) != 0) && ((flags & XiNegative) != 0))
     {
-      /*
-        Support negative height values (e.g. 30x-20).
-      */
-      geometry_info->sigma=geometry_info->xi;
-      geometry_info->xi=0.0;
-      flags|=SigmaValue;
-      flags&=(~XiValue);
+      if ((flags & PsiValue) == 0)
+        {
+          /*
+            Support negative height values (e.g. 30x-20).
+          */
+          geometry_info->sigma=geometry_info->xi;
+          geometry_info->xi=0.0;
+          flags|=SigmaValue;
+          flags&=(~XiValue);
+        }
+      else
+        if ((flags & ChiValue) == 0)
+          {
+            /*
+              Support negative height values (e.g. 30x-20+10).
+            */
+            geometry_info->sigma=geometry_info->xi;
+            geometry_info->xi=geometry_info->psi;
+            flags|=SigmaValue;
+            flags|=XiValue;
+            flags&=(~PsiValue);
+          }
+        else
+          {
+            /*
+              Support negative height values (e.g. 30x-20+10+10).
+            */
+            geometry_info->sigma=geometry_info->xi;
+            geometry_info->xi=geometry_info->psi;
+            geometry_info->psi=geometry_info->chi;
+            flags|=SigmaValue;
+            flags|=XiValue;
+            flags|=PsiValue;
+            flags&=(~ChiValue);
+          }
     }
   if ((flags & PercentValue) != 0)
     {
@@ -1306,7 +1335,7 @@ MagickExport MagickStatusType ParseGravityGeometry(const Image *image,
 %
 %  ParseMetaGeometry() is similar to GetGeometry() except the returned
 %  geometry is modified as determined by the meta characters:  %, !, <, >, @,
-%  ~, and ^ in relation to image resizing.
+%  :, and ^ in relation to image resizing.
 %
 %  Final image dimensions are adjusted so as to preserve the aspect ratio as
 %  much as possible, while generating a integer (pixel) size, and fitting the
@@ -1318,7 +1347,7 @@ MagickExport MagickStatusType ParseGravityGeometry(const Image *image,
 %     <   only enlarge images smaller that geometry
 %     >   only shrink images larger than geometry
 %     @   fit image to contain at most this many pixels
-%     ~   width and height denotes an aspect ratio
+%     :   width and height denotes an aspect ratio
 %     ^   contain the given geometry given, (minimal dimensions given)
 %
 %  The format of the ParseMetaGeometry method is:
@@ -1336,7 +1365,6 @@ MagickExport MagickStatusType ParseGravityGeometry(const Image *image,
 %      the given geometry specification.
 %
 */
-
 MagickExport MagickStatusType ParseMetaGeometry(const char *geometry,ssize_t *x,
   ssize_t *y,size_t *width,size_t *height)
 {

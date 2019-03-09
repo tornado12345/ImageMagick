@@ -22,13 +22,13 @@
 %                                January 2013                                 %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -491,10 +491,9 @@ static MagickBooleanType OpenDistributeCache(SplayTreeInfo *registry,int file,
   if (image == (Image *) NULL)
     return(MagickFalse);
   length=sizeof(image->storage_class)+sizeof(image->colorspace)+
-    sizeof(image->alpha_trait)+sizeof(image->read_mask)+
-    sizeof(image->write_mask)+sizeof(image->columns)+sizeof(image->rows)+
-    sizeof(image->number_channels)+MaxPixelChannels*sizeof(*image->channel_map)+
-    sizeof(image->metacontent_extent);
+    sizeof(image->alpha_trait)+sizeof(image->channels)+sizeof(image->columns)+
+    sizeof(image->rows)+sizeof(image->number_channels)+MaxPixelChannels*
+    sizeof(*image->channel_map)+sizeof(image->metacontent_extent);
   count=dpc_read(file,length,message);
   if (count != (MagickOffsetType) length)
     return(MagickFalse);
@@ -508,10 +507,10 @@ static MagickBooleanType OpenDistributeCache(SplayTreeInfo *registry,int file,
   p+=sizeof(image->colorspace);
   (void) memcpy(&image->alpha_trait,p,sizeof(image->alpha_trait));
   p+=sizeof(image->alpha_trait);
-  (void) memcpy(&image->read_mask,p,sizeof(image->read_mask));
-  p+=sizeof(image->read_mask);
-  (void) memcpy(&image->write_mask,p,sizeof(image->write_mask));
-  p+=sizeof(image->write_mask);
+  (void) memcpy(&image->channels,p,sizeof(image->channels));
+  p+=sizeof(image->channels);
+  (void) memcpy(&image->channels,p,sizeof(image->channels));
+  p+=sizeof(image->channels);
   (void) memcpy(&image->columns,p,sizeof(image->columns));
   p+=sizeof(image->columns);
   (void) memcpy(&image->rows,p,sizeof(image->rows));
@@ -1159,10 +1158,8 @@ MagickPrivate MagickBooleanType OpenDistributePixelCache(
   p+=sizeof(image->colorspace);
   (void) memcpy(p,&image->alpha_trait,sizeof(image->alpha_trait));
   p+=sizeof(image->alpha_trait);
-  (void) memcpy(p,&image->read_mask,sizeof(image->read_mask));
-  p+=sizeof(image->read_mask);
-  (void) memcpy(p,&image->write_mask,sizeof(image->write_mask));
-  p+=sizeof(image->write_mask);
+  (void) memcpy(p,&image->channels,sizeof(image->channels));
+  p+=sizeof(image->channels);
   (void) memcpy(p,&image->columns,sizeof(image->columns));
   p+=sizeof(image->columns);
   (void) memcpy(p,&image->rows,sizeof(image->rows));

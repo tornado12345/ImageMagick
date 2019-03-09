@@ -17,13 +17,13 @@
 %                                 July 1998                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -243,6 +243,7 @@ MagickExport void *AcquireAlignedMemory(const size_t count,const size_t quantum)
 {
 #define AlignedExtent(size,alignment) \
   (((size)+((alignment)-1)) & ~((alignment)-1))
+#define AlignedPowerOf2(x)  ((((x) - 1) & (x)) == 0)
 
   size_t
     alignment,
@@ -257,9 +258,7 @@ MagickExport void *AcquireAlignedMemory(const size_t count,const size_t quantum)
   memory=NULL;
   size=count*quantum;
   alignment=CACHE_LINE_SIZE;
-  if (size > (size_t) (GetMagickPageSize() >> 1))
-    alignment=(size_t) GetMagickPageSize();
-  extent=AlignedExtent(size,CACHE_LINE_SIZE);
+  extent=AlignedExtent(size,alignment);
   if ((size == 0) || (extent < size))
     return((void *) NULL);
 #if defined(MAGICKCORE_HAVE_POSIX_MEMALIGN)
@@ -272,6 +271,17 @@ MagickExport void *AcquireAlignedMemory(const size_t count,const size_t quantum)
     void
       *p;
 
+    if ((alignment == 0) || (alignment % sizeof(void *) != 0) ||
+        (AlignedPowerOf2(alignment/sizeof(void *)) == 0))
+      {
+        errno=EINVAL;
+        return((void *) NULL);
+      }
+    if (size > (SIZE_MAX-alignment-sizeof(void *)-1))
+      {
+        errno=ENOMEM;
+        return((void *) NULL);
+      }
     extent=(size+alignment-1)+sizeof(void *);
     if (extent > size)
       {
@@ -582,19 +592,6 @@ MagickExport MemoryInfo *AcquireVirtualMemory(const size_t count,
 
   if (HeapOverflowSanityCheck(count,quantum) != MagickFalse)
     return((MemoryInfo *) NULL);
-  if (max_memory_request == 0)
-    {
-      max_memory_request=(size_t) MagickULLConstant(~0);
-      value=GetPolicyValue("system:max-memory-request");
-      if (value != (char *) NULL)
-        {
-          /*
-            The security policy sets a max memory request limit.
-          */
-          max_memory_request=StringToSizeType(value,100.0);
-          value=DestroyString(value);
-        }
-    }
   if (virtual_anonymous_memory == 0)
     {
       virtual_anonymous_memory=1;
@@ -619,7 +616,7 @@ MagickExport MemoryInfo *AcquireVirtualMemory(const size_t count,
   memory_info->length=extent;
   memory_info->signature=MagickCoreSignature;
   if ((virtual_anonymous_memory == 1) &&
-      ((count*quantum) <= (size_t) max_memory_request))
+      ((count*quantum) <= GetMaxMemoryRequest()))
     {
       memory_info->blob=AcquireAlignedMemory(1,extent);
       if (memory_info->blob != NULL)
@@ -631,7 +628,7 @@ MagickExport MemoryInfo *AcquireVirtualMemory(const size_t count,
         Acquire anonymous memory map.
       */
       memory_info->blob=NULL;
-      if ((count*quantum) <= (size_t) max_memory_request)
+      if ((count*quantum) <= GetMaxMemoryRequest())
         memory_info->blob=MapBlob(-1,IOMode,0,extent);
       if (memory_info->blob != NULL)
         memory_info->type=MapVirtualMemory;
@@ -653,7 +650,12 @@ MagickExport MemoryInfo *AcquireVirtualMemory(const size_t count,
               if ((offset == (MagickOffsetType) (extent-1)) &&
                   (write(file,"",1) == 1))
                 {
+#if !defined(MAGICKCORE_HAVE_POSIX_FALLOCATE)
                   memory_info->blob=MapBlob(file,IOMode,0,extent);
+#else
+                  if (posix_fallocate(file,0,extent) == 0)
+                    memory_info->blob=MapBlob(file,IOMode,0,extent);
+#endif
                   if (memory_info->blob != NULL)
                     memory_info->type=MapVirtualMemory;
                   else
@@ -894,6 +896,46 @@ MagickExport void GetMagickMemoryMethods(
   *acquire_memory_handler=memory_methods.acquire_memory_handler;
   *resize_memory_handler=memory_methods.resize_memory_handler;
   *destroy_memory_handler=memory_methods.destroy_memory_handler;
+}
+
+/*
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                                                                             %
+%                                                                             %
+%                                                                             %
++   G e t M a x M e m o r y R e q u e s t                                     %
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%  GetMaxMemoryRequest() returns the max_memory_request value.
+%
+%  The format of the GetMaxMemoryRequest method is:
+%
+%      size_t GetMaxMemoryRequest(void)
+%
+*/
+MagickExport size_t GetMaxMemoryRequest(void)
+{
+  if (max_memory_request == 0)
+    {
+      char
+        *value;
+
+      value=GetPolicyValue("system:max-memory-request");
+      if (value != (char *) NULL)
+        {
+          /*
+            The security policy sets a max memory request limit.
+          */
+          max_memory_request=StringToSizeType(value,100.0);
+          value=DestroyString(value);
+        }
+      else
+        max_memory_request=(size_t) MagickULLConstant(~0);
+    }
+  return(max_memory_request);
 }
 
 /*
@@ -1167,7 +1209,7 @@ MagickExport void *ResetMagickMemory(void *memory,int byte,const size_t size)
 %                                                                             %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-%  ResetMaxMemoryRequest() resets the anonymous_memory value.
+%  ResetMaxMemoryRequest() resets the max_memory_request value.
 %
 %  The format of the ResetMaxMemoryRequest method is:
 %
@@ -1190,7 +1232,7 @@ MagickPrivate void ResetMaxMemoryRequest(void)
 %                                                                             %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-%  ResetVirtualAnonymousMemory() resets the anonymous_memory value.
+%  ResetVirtualAnonymousMemory() resets the virtual_anonymous_memory value.
 %
 %  The format of the ResetVirtualAnonymousMemory method is:
 %

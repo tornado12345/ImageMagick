@@ -18,13 +18,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -962,8 +962,8 @@ static MagickBooleanType WritePS3Image(const ImageInfo *image_info,Image *image,
       }
     if (image->units == PixelsPerCentimeterResolution)
       {
-        resolution.x=(size_t) (100.0*2.54*resolution.x+0.5)/100.0;
-        resolution.y=(size_t) (100.0*2.54*resolution.y+0.5)/100.0;
+        resolution.x=(size_t) ((100.0*2.54*resolution.x+0.5)/100.0);
+        resolution.y=(size_t) ((100.0*2.54*resolution.y+0.5)/100.0);
       }
     SetGeometry(image,&geometry);
     (void) FormatLocaleString(page_geometry,MagickPathExtent,"%.20gx%.20g",
@@ -1155,7 +1155,7 @@ static MagickBooleanType WritePS3Image(const ImageInfo *image_info,Image *image,
     /*
       PS clipping path from Photoshop clipping path.
     */
-    if ((image->read_mask != MagickFalse) ||
+    if (((image->channels & WriteMaskChannel) != 0) ||
         (LocaleNCompare("8BIM:",image->magick_filename,5) != 0))
       (void) WriteBlobString(image,"/ClipImage {} def\n");
     else
@@ -1235,7 +1235,7 @@ static MagickBooleanType WritePS3Image(const ImageInfo *image_info,Image *image,
     /*
       Photoshop clipping path active?
     */
-    if ((image->read_mask != MagickFalse) &&
+    if (((image->channels & WriteMaskChannel) != 0) &&
         (LocaleNCompare("8BIM:",image->magick_filename,5) == 0))
         (void) WriteBlobString(image,"true\n");
       else

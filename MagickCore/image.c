@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -583,13 +583,6 @@ MagickExport Image *AppendImages(const Image *images,
       GetPixelInfo(next,&pixel);
       for (x=0; x < (ssize_t) next->columns; x++)
       {
-        if (GetPixelWriteMask(next,p) <= (QuantumRange/2))
-          {
-            SetPixelBackgoundColor(append_image,q);
-            p+=GetPixelChannels(next);
-            q+=GetPixelChannels(append_image);
-            continue;
-          }
         GetPixelInfoPixel(next,p,&pixel);
         SetPixelViaPixelInfo(append_image,&pixel,q);
         p+=GetPixelChannels(next);
@@ -750,7 +743,7 @@ MagickExport MagickBooleanType ClipImagePath(Image *image,const char *pathname,
       if (SetImageStorageClass(clip_mask,DirectClass,exception) == MagickFalse)
         return(MagickFalse);
     }
-  if (inside != MagickFalse)
+  if (inside == MagickFalse)
     (void) NegateImage(clip_mask,MagickFalse,exception);
   (void) FormatLocaleString(clip_mask->magick_filename,MagickPathExtent,
     "8BIM:1999,2998:%s\nPS",pathname);
@@ -833,9 +826,9 @@ MagickExport Image *CloneImage(const Image *image,const size_t columns,
   clone_image->number_meta_channels=image->number_meta_channels;
   clone_image->metacontent_extent=image->metacontent_extent;
   clone_image->colorspace=image->colorspace;
-  clone_image->read_mask=image->read_mask;
-  clone_image->write_mask=image->write_mask;
   clone_image->alpha_trait=image->alpha_trait;
+  clone_image->channels=image->channels;
+  clone_image->mask_trait=image->mask_trait;
   clone_image->columns=image->columns;
   clone_image->rows=image->rows;
   clone_image->dither=image->dither;
@@ -846,6 +839,7 @@ MagickExport Image *CloneImage(const Image *image,const size_t columns,
   GetTimerInfo(&clone_image->timer);
   if (image->ascii85 != (void *) NULL)
     Ascii85Initialize(clone_image);
+  clone_image->extent=image->extent;
   clone_image->magick_columns=image->magick_columns;
   clone_image->magick_rows=image->magick_rows;
   clone_image->type=image->type;
@@ -1146,9 +1140,10 @@ MagickExport MagickBooleanType CopyImagePixels(Image *image,
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-        #pragma omp critical (MagickCore_CopyImage)
+        #pragma omp atomic
 #endif
-        proceed=SetImageProgress(image,CopyImageTag,progress++,image->rows);
+        progress++;
+        proceed=SetImageProgress(image,CopyImageTag,progress,image->rows);
         if (proceed == MagickFalse)
           status=MagickFalse;
       }
@@ -1460,13 +1455,34 @@ MagickExport Image *GetImageMask(const Image *image,const PixelMask type,
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"...");
   assert(image->signature == MagickCoreSignature);
-  mask_image=CloneImage(image,image->columns,image->rows,MagickTrue,exception);
-  if (mask_image == (Image *) NULL)
-    return((Image *) NULL);
+  switch (type)
+  {
+    case ReadPixelMask:
+    {
+      if ((image->channels & ReadMaskChannel) == 0)
+        return((Image *) NULL);
+      break;
+    }
+    case WritePixelMask:
+    {
+      if ((image->channels & WriteMaskChannel) == 0)
+        return((Image *) NULL);
+      break;
+    }
+    default:
+    {
+      if ((image->channels & CompositeMaskChannel) == 0)
+        return((Image *) NULL);
+      break;
+    }
+  }
+  mask_image=AcquireImage((ImageInfo *) NULL,exception);
+  status=SetImageExtent(mask_image,image->columns,image->rows,exception);
+  if (status == MagickFalse)
+    return(DestroyImage(mask_image));
   status=MagickTrue;
   mask_image->alpha_trait=UndefinedPixelTrait;
   (void) SetImageColorspace(mask_image,GRAYColorspace,exception);
-  mask_image->read_mask=MagickFalse;
   image_view=AcquireVirtualCacheView(image,exception);
   mask_view=AcquireAuthenticCacheView(mask_image,exception);
   for (y=0; y < (ssize_t) image->rows; y++)
@@ -1494,6 +1510,11 @@ MagickExport Image *GetImageMask(const Image *image,const PixelMask type,
     {
       switch (type)
       {
+        case ReadPixelMask:
+        {
+          SetPixelGray(mask_image,GetPixelReadMask(image,p),q);
+          break;
+        }
         case WritePixelMask:
         {
           SetPixelGray(mask_image,GetPixelWriteMask(image,p),q);
@@ -1501,7 +1522,7 @@ MagickExport Image *GetImageMask(const Image *image,const PixelMask type,
         }
         default:
         {
-          SetPixelGray(mask_image,GetPixelReadMask(image,p),q);
+          SetPixelGray(mask_image,GetPixelCompositeMask(image,p),q);
           break;
         }
       }
@@ -1729,7 +1750,7 @@ MagickExport size_t InterpretImageFilename(const ImageInfo *image_info,
         *q='\0';
         (void) CopyMagickString(filename+(p-format-offset),option,(size_t)
           (MagickPathExtent-(p-format-offset)));
-        offset+=strlen(pattern)-4;
+        offset+=strlen(pattern)-strlen(option)+3;
         *q=c;
         (void) ConcatenateMagickString(filename,r+1,MagickPathExtent);
         canonical=MagickTrue;
@@ -1828,11 +1849,6 @@ MagickExport MagickBooleanType IsHighDynamicRangeImage(const Image *image,
       register ssize_t
         i;
 
-      if (GetPixelWriteMask(image,p) <= (QuantumRange/2))
-        {
-          p+=GetPixelChannels(image);
-          continue;
-        }
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
         double
@@ -2246,7 +2262,7 @@ MagickExport MagickBooleanType ResetImagePixels(Image *image,
   assert(image->signature == MagickCoreSignature);
   pixels=AcquirePixelCachePixels(image,&length,exception);
   if (pixels != (void *) NULL)
-    {   
+    {
       /*
         Reset in-core image pixels.
       */
@@ -2312,8 +2328,10 @@ MagickExport MagickBooleanType ResetImagePixels(Image *image,
 %
 %    o image: the image.
 %
-%    o Alpha: the level of transparency: 0 is fully transparent and QuantumRange
+%    o alpha: the level of transparency: 0 is fully transparent and QuantumRange
 %      is fully opaque.
+%
+%    o exception: return any errors or warnings in this structure.
 %
 */
 MagickExport MagickBooleanType SetImageAlpha(Image *image,const Quantum alpha,
@@ -2323,7 +2341,6 @@ MagickExport MagickBooleanType SetImageAlpha(Image *image,const Quantum alpha,
     *image_view;
 
   MagickBooleanType
-    set_opaque,
     status;
 
   ssize_t
@@ -2333,8 +2350,6 @@ MagickExport MagickBooleanType SetImageAlpha(Image *image,const Quantum alpha,
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"...");
   assert(image->signature == MagickCoreSignature);
-  set_opaque=(image->alpha_trait == UndefinedPixelTrait) ? MagickTrue :
-    MagickFalse;
   image->alpha_trait=BlendPixelTrait;
   status=MagickTrue;
   image_view=AcquireAuthenticCacheView(image,exception);
@@ -2360,10 +2375,7 @@ MagickExport MagickBooleanType SetImageAlpha(Image *image,const Quantum alpha,
       }
     for (x=0; x < (ssize_t) image->columns; x++)
     {
-      if (GetPixelWriteMask(image,q) > (QuantumRange/2))
-        SetPixelAlpha(image,alpha,q);
-      else if (set_opaque != MagickFalse)
-        SetPixelAlpha(image,OpaqueAlpha,q);
+      SetPixelAlpha(image,alpha,q);
       q+=GetPixelChannels(image);
     }
     if (SyncCacheViewAuthenticPixels(image_view,exception) == MagickFalse)
@@ -2872,7 +2884,10 @@ MagickExport MagickBooleanType SetImageInfo(ImageInfo *image_info,
     {
       (void) CopyMagickString(magic,image_info->magick,MagickPathExtent);
       magick_info=GetMagickInfo(magic,sans_exception);
-      GetPathComponent(image_info->filename,CanonicalPath,component);
+      if (frames == 0)
+        GetPathComponent(image_info->filename,CanonicalPath,component);
+      else
+        GetPathComponent(image_info->filename,SubcanonicalPath,component);
       (void) CopyMagickString(image_info->filename,component,MagickPathExtent);
     }
   else
@@ -2988,7 +3003,7 @@ MagickExport MagickBooleanType SetImageInfo(ImageInfo *image_info,
       (void) CloseBlob(image);
       image=DestroyImage(image);
       /*
-        Check magic.xml configuration file.
+        Check magic cache.
       */
       sans_exception=AcquireExceptionInfo();
       magic_info=GetMagicInfo(magick,(size_t) count,sans_exception);
@@ -3189,19 +3204,45 @@ MagickExport MagickBooleanType SetImageMask(Image *image,const PixelMask type,
     {
       switch (type)
       {
-        case WritePixelMask: image->write_mask=MagickFalse; break;
-        default: image->read_mask=MagickFalse; break;
+        case ReadPixelMask:
+        {
+          image->channels=(ChannelType) (image->channels & ~ReadMaskChannel);
+          break;
+        }
+        case WritePixelMask:
+        {
+          image->channels=(ChannelType) (image->channels & ~WriteMaskChannel);
+        }
+        default:
+        {
+          image->channels=(ChannelType) (image->channels & ~CompositeMaskChannel);
+          break;
+        }
       }
       return(SyncImagePixelCache(image,exception));
     }
   switch (type)
   {
-    case WritePixelMask: image->write_mask=MagickTrue; break;
-    default: image->read_mask=MagickTrue; break;
+    case ReadPixelMask:
+    {
+      image->channels=(ChannelType) (image->channels | ReadMaskChannel);
+      break;
+    }
+    case WritePixelMask:
+    {
+      image->channels=(ChannelType) (image->channels | WriteMaskChannel);
+      break;
+    }
+    default:
+    {
+      image->channels=(ChannelType) (image->channels | CompositeMaskChannel);
+      break;
+    }
   }
   if (SyncImagePixelCache(image,exception) == MagickFalse)
     return(MagickFalse);
   status=MagickTrue;
+  image->mask_trait=UpdatePixelTrait;
   mask_view=AcquireVirtualCacheView(mask,exception);
   image_view=AcquireAuthenticCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
@@ -3238,6 +3279,11 @@ MagickExport MagickBooleanType SetImageMask(Image *image,const PixelMask type,
         intensity=GetPixelIntensity(mask,p);
       switch (type)
       {
+        case ReadPixelMask:
+        {
+          SetPixelReadMask(image,ClampToQuantum(intensity),q);
+          break;
+        }
         case WritePixelMask:
         {
           SetPixelWriteMask(image,ClampToQuantum(intensity),q);
@@ -3245,7 +3291,7 @@ MagickExport MagickBooleanType SetImageMask(Image *image,const PixelMask type,
         }
         default:
         {
-          SetPixelReadMask(image,ClampToQuantum(intensity),q);
+          SetPixelCompositeMask(image,ClampToQuantum(intensity),q);
           break;
         }
       }
@@ -3255,6 +3301,7 @@ MagickExport MagickBooleanType SetImageMask(Image *image,const PixelMask type,
     if (SyncCacheViewAuthenticPixels(image_view,exception) == MagickFalse)
       status=MagickFalse;
   }
+  image->mask_trait=UndefinedPixelTrait;
   mask_view=DestroyCacheView(mask_view);
   image_view=DestroyCacheView(image_view);
   return(status);
@@ -3313,19 +3360,46 @@ MagickExport MagickBooleanType SetImageRegionMask(Image *image,
     {
       switch (type)
       {
-        case WritePixelMask: image->write_mask=MagickFalse; break;
-        default: image->read_mask=MagickFalse; break;
+        case ReadPixelMask:
+        {
+          image->channels=(ChannelType) (image->channels & ~ReadMaskChannel);
+          break;
+        }
+        case WritePixelMask:
+        {
+          image->channels=(ChannelType) (image->channels & ~WriteMaskChannel);
+          break;
+        }
+        default:
+        {
+          image->channels=(ChannelType) (image->channels & ~CompositeMaskChannel);
+          break;
+        }
       }
       return(SyncImagePixelCache(image,exception));
     }
   switch (type)
   {
-    case WritePixelMask: image->write_mask=MagickTrue; break;
-    default: image->read_mask=MagickTrue; break;
+    case ReadPixelMask:
+    {
+      image->channels=(ChannelType) (image->channels | ReadMaskChannel);
+      break;
+    }
+    case WritePixelMask:
+    {
+      image->channels=(ChannelType) (image->channels | WriteMaskChannel);
+      break;
+    }
+    default:
+    {
+      image->channels=(ChannelType) (image->channels | CompositeMaskChannel);
+      break;
+    }
   }
-  if (SetImageStorageClass(image,DirectClass,exception) == MagickFalse)
+  if (SyncImagePixelCache(image,exception) == MagickFalse)
     return(MagickFalse);
   status=MagickTrue;
+  image->mask_trait=UpdatePixelTrait;
   image_view=AcquireAuthenticCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static) shared(status) \
@@ -3352,12 +3426,17 @@ MagickExport MagickBooleanType SetImageRegionMask(Image *image,
       Quantum
         pixel;
 
-      pixel=(Quantum) 0;
+      pixel=QuantumRange;
       if (((x >= region->x) && (x < (region->x+(ssize_t) region->width))) &&
           ((y >= region->y) && (y < (region->y+(ssize_t) region->height))))
-        pixel=QuantumRange;
+        pixel=(Quantum) 0;
       switch (type)
       {
+        case ReadPixelMask:
+        {
+          SetPixelReadMask(image,pixel,q);
+          break;
+        }
         case WritePixelMask:
         {
           SetPixelWriteMask(image,pixel,q);
@@ -3365,7 +3444,7 @@ MagickExport MagickBooleanType SetImageRegionMask(Image *image,
         }
         default:
         {
-          SetPixelReadMask(image,pixel,q);
+          SetPixelCompositeMask(image,pixel,q);
           break;
         }
       }
@@ -3374,6 +3453,7 @@ MagickExport MagickBooleanType SetImageRegionMask(Image *image,
     if (SyncCacheViewAuthenticPixels(image_view,exception) == MagickFalse)
       status=MagickFalse;
   }
+  image->mask_trait=UndefinedPixelTrait;
   image_view=DestroyCacheView(image_view);
   return(status);
 }

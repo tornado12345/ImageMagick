@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -73,6 +73,7 @@
 #include "MagickCore/static.h"
 #include "MagickCore/string_.h"
 #include "MagickCore/module.h"
+#include "MagickCore/utility.h"
 
 /*
   Typedef declarations.
@@ -429,7 +430,7 @@ static Image *ReadPDBImage(const ImageInfo *image_info,ExceptionInfo *exception)
     {
       image->compression=NoCompression;
       count=(ssize_t) ReadBlob(image,packets*image->rows,pixels);
-      if (count != (packets*image->rows))
+      if (count != (ssize_t) (packets*image->rows))
         {
           pixels=(unsigned char *) RelinquishMagickMemory(pixels);
           ThrowReaderException(CorruptImageError,"RLEDecoderError");
@@ -739,6 +740,9 @@ static unsigned char *EncodeRLE(unsigned char *destination,
 static MagickBooleanType WritePDBImage(const ImageInfo *image_info,Image *image,
   ExceptionInfo *exception)
 {
+  char
+    filename[MagickPathExtent];
+
   const char
     *comment;
 
@@ -807,8 +811,8 @@ static MagickBooleanType WritePDBImage(const ImageInfo *image_info,Image *image,
   }
   (void) memset(&pdb_info,0,sizeof(pdb_info));
   (void) memset(&pdb_image,0,sizeof(pdb_image));
-  (void) CopyMagickString(pdb_info.name,image_info->filename,
-    sizeof(pdb_info.name));
+  GetPathComponent(image_info->filename,TailPath,filename);
+  (void) CopyMagickString(pdb_info.name,filename,sizeof(pdb_info.name));
   pdb_info.attributes=0;
   pdb_info.version=0;
   pdb_info.create_time=time(NULL);
@@ -875,7 +879,7 @@ static MagickBooleanType WritePDBImage(const ImageInfo *image_info,Image *image,
         scanline=(unsigned char *) RelinquishMagickMemory(scanline);
       ThrowWriterException(ResourceLimitError,"MemoryAllocationFailed");
     }
-  (void) ResetMagickMemory(buffer,0,512*sizeof(*buffer));
+  (void) memset(buffer,0,512*sizeof(*buffer));
   if (IssRGBCompatibleColorspace(image->colorspace) == MagickFalse)
     (void) TransformImageColorspace(image,sRGBColorspace,exception);
   /*
@@ -884,7 +888,12 @@ static MagickBooleanType WritePDBImage(const ImageInfo *image_info,Image *image,
   quantum_info=AcquireQuantumInfo(image_info,image);
   if (quantum_info == (QuantumInfo *) NULL)
     {
-      runlength=(unsigned char *) RelinquishMagickMemory(runlength);
+      if (runlength != (unsigned char *) NULL)
+        runlength=(unsigned char *) RelinquishMagickMemory(runlength);
+      if (buffer != (unsigned char *) NULL)
+        buffer=(unsigned char *) RelinquishMagickMemory(buffer);
+      if (scanline != (unsigned char *) NULL)
+        scanline=(unsigned char *) RelinquishMagickMemory(scanline);
       ThrowWriterException(ResourceLimitError,"MemoryAllocationFailed");
     }
   status=SetQuantumDepth(image,quantum_info,image->depth > 8 ? 16 : 8);

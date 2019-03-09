@@ -17,13 +17,13 @@
 %                                July 1993                                    %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -933,8 +933,17 @@ MagickExport MagickBooleanType ThrowException(ExceptionInfo *exception,
   exceptions=(LinkedListInfo *) exception->exceptions;
   if (GetNumberOfElementsInLinkedList(exceptions) > MaxExceptionList)
     {
-      UnlockSemaphoreInfo(exception->semaphore);
-      return(MagickTrue);
+      if (severity < ErrorException)
+        {
+          UnlockSemaphoreInfo(exception->semaphore);
+          return(MagickTrue);
+        }
+      p=(ExceptionInfo *) GetLastValueInLinkedList(exceptions);
+      if (p->severity >= ErrorException)
+        {
+          UnlockSemaphoreInfo(exception->semaphore);
+          return(MagickTrue);
+        }
     }
   p=(ExceptionInfo *) GetLastValueInLinkedList(exceptions);
   if ((p != (ExceptionInfo *) NULL) && (p->severity == severity) &&
@@ -958,7 +967,7 @@ MagickExport MagickBooleanType ThrowException(ExceptionInfo *exception,
     p->description=ConstantString(description);
   p->signature=MagickCoreSignature;
   (void) AppendValueToLinkedList(exceptions,p);
-  if (p->severity >= exception->severity)
+  if (p->severity > exception->severity)
     {
       exception->severity=p->severity;
       exception->reason=p->reason;
@@ -966,8 +975,9 @@ MagickExport MagickBooleanType ThrowException(ExceptionInfo *exception,
     }
   UnlockSemaphoreInfo(exception->semaphore);
   if (GetNumberOfElementsInLinkedList(exceptions) == MaxExceptionList)
-    (void) ThrowMagickException(exception,GetMagickModule(),ResourceLimitError,
-      "TooManyExceptions","(exception processing is suspended)");
+    (void) ThrowMagickException(exception,GetMagickModule(),
+      ResourceLimitWarning,"TooManyExceptions",
+      "(exception processing is suspended)");
   return(MagickTrue);
 }
 

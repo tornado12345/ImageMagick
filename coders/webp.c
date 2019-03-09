@@ -17,13 +17,13 @@
 %                                 March 2011                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -393,8 +393,8 @@ static Image *ReadWEBPImage(const ImageInfo *image_info,
       webp_flags = 0;
 
     WebPData
-     content = { stream, length },
-     chunk ={ 0 };
+     chunk,
+     content = { stream, length };
 
     WebPMux
       *mux;
@@ -403,6 +403,7 @@ static Image *ReadWEBPImage(const ImageInfo *image_info,
       Extract any profiles.
     */
     mux=WebPMuxCreate(&content,0);
+    (void) memset(&chunk,0,sizeof(chunk));
     WebPMuxGetFeatures(mux,&webp_flags);
     if (webp_flags & ICCP_FLAG)
       {
@@ -480,9 +481,9 @@ ModuleExport size_t RegisterWEBPImage(void)
   entry->decoder=(DecodeImageHandler *) ReadWEBPImage;
   entry->encoder=(EncodeImageHandler *) WriteWEBPImage;
   (void) FormatLocaleString(version,MagickPathExtent,"libwebp %d.%d.%d [%04X]",
-    (WebPGetDecoderVersion() >> 16) & 0xff,
-    (WebPGetDecoderVersion() >> 8) & 0xff,
-    (WebPGetDecoderVersion() >> 0) & 0xff,WEBP_DECODER_ABI_VERSION);
+    (WebPGetEncoderVersion() >> 16) & 0xff,
+    (WebPGetEncoderVersion() >> 8) & 0xff,
+    (WebPGetEncoderVersion() >> 0) & 0xff,WEBP_ENCODER_ABI_VERSION);
 #endif
   entry->mime_type=ConstantString("image/webp");
   entry->flags|=CoderDecoderSeekableStreamFlag;
@@ -545,7 +546,7 @@ ModuleExport void UnregisterWEBPImage(void)
 %
 */
 
-#if WEBP_DECODER_ABI_VERSION >= 0x0100
+#if WEBP_ENCODER_ABI_VERSION >= 0x0100
 static int WebPEncodeProgress(int percent,const WebPPicture* picture)
 {
 #define EncodeImageTag  "Encode/Image"
@@ -633,7 +634,7 @@ static MagickBooleanType WriteWEBPImage(const ImageInfo *image_info,
   picture.writer=WebPMemoryWrite;
   picture.custom_ptr=(&writer_info);
 #endif
-#if WEBP_DECODER_ABI_VERSION >= 0x0100
+#if WEBP_ENCODER_ABI_VERSION >= 0x0100
   picture.progress_hook=WebPEncodeProgress;
   picture.user_data=(void *) image;
 #endif
@@ -662,7 +663,7 @@ static MagickBooleanType WriteWEBPImage(const ImageInfo *image_info,
         configure.image_hint=WEBP_HINT_PHOTO;
       if (LocaleCompare(value,"picture") == 0)
         configure.image_hint=WEBP_HINT_PICTURE;
-#if WEBP_DECODER_ABI_VERSION >= 0x0200
+#if WEBP_ENCODER_ABI_VERSION >= 0x0200
       if (LocaleCompare(value,"graph") == 0)
         configure.image_hint=WEBP_HINT_GRAPH;
 #endif
@@ -716,7 +717,7 @@ static MagickBooleanType WriteWEBPImage(const ImageInfo *image_info,
   value=GetImageOption(image_info,"webp:partition-limit");
   if (value != (char *) NULL)
     configure.partition_limit=StringToInteger(value);
-#if WEBP_DECODER_ABI_VERSION >= 0x0201
+#if WEBP_ENCODER_ABI_VERSION >= 0x0201
   value=GetImageOption(image_info,"webp:emulate-jpeg-size");
   if (value != (char *) NULL)
     configure.emulate_jpeg_size=(int) ParseCommandOption(MagickBooleanOptions,
@@ -728,6 +729,11 @@ static MagickBooleanType WriteWEBPImage(const ImageInfo *image_info,
   value=GetImageOption(image_info,"webp:thread-level");
   if (value != (char *) NULL)
     configure.thread_level=StringToInteger(value);
+#endif
+#if WEBP_ENCODER_ABI_VERSION >= 0x020e
+  value=GetImageOption(image_info,"webp:use-sharp-yuv");
+  if (value != (char *) NULL)
+    configure.use_sharp_yuv=StringToInteger(value);
 #endif
   if (WebPValidateConfig(&configure) == 0)
     ThrowWriterException(ResourceLimitError,"UnableToEncodeImageFile");
@@ -822,7 +828,7 @@ static MagickBooleanType WriteWEBPImage(const ImageInfo *image_info,
           message="file too big (> 4GB)";
           break;
         }
-#if WEBP_DECODER_ABI_VERSION >= 0x0100
+#if WEBP_ENCODER_ABI_VERSION >= 0x0100
         case VP8_ENC_ERROR_USER_ABORT:
         {
           message="user abort";
@@ -857,23 +863,23 @@ static MagickBooleanType WriteWEBPImage(const ImageInfo *image_info,
       Set image profiles (if any).
     */
     mux_error=WEBP_MUX_OK;
-    chunk.size=0;
+    (void) memset(&chunk,0,sizeof(chunk));
     mux=WebPMuxNew();
-    profile=GetImageProfile(image,"ICC");    
+    profile=GetImageProfile(image,"ICC");
     if ((profile != (StringInfo *) NULL) && (mux_error == WEBP_MUX_OK))
       {
         chunk.bytes=GetStringInfoDatum(profile);
         chunk.size=GetStringInfoLength(profile);
         mux_error=WebPMuxSetChunk(mux,"ICCP",&chunk,0);
       }
-    profile=GetImageProfile(image,"EXIF");    
+    profile=GetImageProfile(image,"EXIF");
     if ((profile != (StringInfo *) NULL) && (mux_error == WEBP_MUX_OK))
       {
         chunk.bytes=GetStringInfoDatum(profile);
         chunk.size=GetStringInfoLength(profile);
         mux_error=WebPMuxSetChunk(mux,"EXIF",&chunk,0);
       }
-    profile=GetImageProfile(image,"XMP");    
+    profile=GetImageProfile(image,"XMP");
     if ((profile != (StringInfo *) NULL) && (mux_error == WEBP_MUX_OK))
       {
         chunk.bytes=GetStringInfoDatum(profile);

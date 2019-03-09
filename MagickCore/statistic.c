@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -597,10 +597,11 @@ MagickExport Image *EvaluateImages(const Image *images,
             MagickBooleanType
               proceed;
 
-#if   defined(MAGICKCORE_OPENMP_SUPPORT)
-            #pragma omp critical (MagickCore_EvaluateImages)
+#if defined(MAGICKCORE_OPENMP_SUPPORT)
+            #pragma omp atomic
 #endif
-            proceed=SetImageProgress(images,EvaluateImageTag,progress++,
+            progress++;
+            proceed=SetImageProgress(images,EvaluateImageTag,progress,
               image->rows);
             if (proceed == MagickFalse)
               status=MagickFalse;
@@ -670,11 +671,6 @@ MagickExport Image *EvaluateImages(const Image *images,
             register ssize_t
               i;
 
-            if (GetPixelWriteMask(next,p) <= (QuantumRange/2))
-              {
-                p+=GetPixelChannels(next);
-                continue;
-              }
             for (i=0; i < (ssize_t) GetPixelChannels(next); i++)
             {
               PixelChannel channel = GetPixelChannelChannel(image,i);
@@ -735,11 +731,6 @@ MagickExport Image *EvaluateImages(const Image *images,
           register ssize_t
             i;
 
-          if (GetPixelWriteMask(image,q) <= (QuantumRange/2))
-            {
-              q+=GetPixelChannels(image);
-              continue;
-            }
           for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
           {
             PixelChannel channel = GetPixelChannelChannel(image,i);
@@ -759,10 +750,11 @@ MagickExport Image *EvaluateImages(const Image *images,
             MagickBooleanType
               proceed;
 
-#if   defined(MAGICKCORE_OPENMP_SUPPORT)
-            #pragma omp critical (MagickCore_EvaluateImages)
+#if defined(MAGICKCORE_OPENMP_SUPPORT)
+            #pragma omp atomic
 #endif
-            proceed=SetImageProgress(images,EvaluateImageTag,progress++,
+            progress++;
+            proceed=SetImageProgress(images,EvaluateImageTag,progress,
               image->rows);
             if (proceed == MagickFalse)
               status=MagickFalse;
@@ -850,8 +842,7 @@ MagickExport MagickBooleanType EvaluateImage(Image *image,
         PixelTrait traits = GetPixelChannelTraits(image,channel);
         if (traits == UndefinedPixelTrait)
           continue;
-        if (((traits & CopyPixelTrait) != 0) ||
-            (GetPixelWriteMask(image,q) <= (QuantumRange/2)))
+        if ((traits & CopyPixelTrait) != 0)
           continue;
         if ((traits & UpdatePixelTrait) == 0)
           continue;
@@ -870,9 +861,10 @@ MagickExport MagickBooleanType EvaluateImage(Image *image,
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-        #pragma omp critical (MagickCore_EvaluateImage)
+        #pragma omp atomic
 #endif
-        proceed=SetImageProgress(image,EvaluateImageTag,progress++,image->rows);
+        progress++;
+        proceed=SetImageProgress(image,EvaluateImageTag,progress,image->rows);
         if (proceed == MagickFalse)
           status=MagickFalse;
       }
@@ -1073,11 +1065,6 @@ MagickExport MagickBooleanType FunctionImage(Image *image,
       register ssize_t
         i;
 
-      if (GetPixelWriteMask(image,q) <= (QuantumRange/2))
-        {
-          q+=GetPixelChannels(image);
-          continue;
-        }
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
         PixelChannel channel = GetPixelChannelChannel(image,i);
@@ -1099,9 +1086,10 @@ MagickExport MagickBooleanType FunctionImage(Image *image,
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-        #pragma omp critical (MagickCore_FunctionImage)
+        #pragma omp atomic
 #endif
-        proceed=SetImageProgress(image,FunctionImageTag,progress++,image->rows);
+        progress++;
+        proceed=SetImageProgress(image,FunctionImageTag,progress,image->rows);
         if (proceed == MagickFalse)
           status=MagickFalse;
       }
@@ -1428,11 +1416,6 @@ MagickExport ChannelMoments *GetImageMoments(const Image *image,
       register ssize_t
         i;
 
-      if (GetPixelWriteMask(image,p) <= (QuantumRange/2))
-        {
-          p+=GetPixelChannels(image);
-          continue;
-        }
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
         PixelChannel channel = GetPixelChannelChannel(image,i);
@@ -1486,11 +1469,6 @@ MagickExport ChannelMoments *GetImageMoments(const Image *image,
       register ssize_t
         i;
 
-      if (GetPixelWriteMask(image,p) <= (QuantumRange/2))
-        {
-          p+=GetPixelChannels(image);
-          continue;
-        }
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
         PixelChannel channel = GetPixelChannelChannel(image,i);
@@ -1857,11 +1835,6 @@ MagickExport MagickBooleanType GetImageRange(const Image *image,double *minima,
       register ssize_t
         i;
 
-      if (GetPixelWriteMask(image,p) <= (QuantumRange/2))
-        {
-          p+=GetPixelChannels(image);
-          continue;
-        }
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
         PixelChannel channel = GetPixelChannelChannel(image,i);
@@ -2015,7 +1988,7 @@ MagickExport ChannelStatistics *GetImageStatistics(const Image *image,
       register ssize_t
         i;
 
-      if (GetPixelWriteMask(image,p) <= (QuantumRange/2))
+      if (GetPixelReadMask(image,p) <= (QuantumRange/2))
         {
           p+=GetPixelChannels(image);
           continue;
@@ -2312,11 +2285,6 @@ MagickExport Image *PolynomialImage(const Image *images,
         register ssize_t
           i;
 
-        if (GetPixelWriteMask(next,p) <= (QuantumRange/2))
-          {
-            p+=GetPixelChannels(next);
-            continue;
-          }
         for (i=0; i < (ssize_t) GetPixelChannels(next); i++)
         {
           MagickRealType
@@ -2346,11 +2314,6 @@ MagickExport Image *PolynomialImage(const Image *images,
       register ssize_t
         i;
 
-      if (GetPixelWriteMask(image,q) <= (QuantumRange/2))
-        {
-          q+=GetPixelChannels(image);
-          continue;
-        }
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
         PixelChannel channel = GetPixelChannelChannel(image,i);
@@ -2371,9 +2334,10 @@ MagickExport Image *PolynomialImage(const Image *images,
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-        #pragma omp critical (MagickCore_PolynomialImages)
+        #pragma omp atomic
 #endif
-        proceed=SetImageProgress(images,PolynomialImageTag,progress++,
+        progress++;
+        proceed=SetImageProgress(images,PolynomialImageTag,progress,
           image->rows);
         if (proceed == MagickFalse)
           status=MagickFalse;
@@ -2908,7 +2872,7 @@ MagickExport Image *StatisticImage(const Image *image,const StatisticType type,
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickCoreSignature);
-  statistic_image=CloneImage(image,image->columns,image->rows,MagickTrue,
+  statistic_image=CloneImage(image,0,0,MagickTrue,
     exception);
   if (statistic_image == (Image *) NULL)
     return((Image *) NULL);
@@ -3077,10 +3041,10 @@ MagickExport Image *StatisticImage(const Image *image,const StatisticType type,
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-        #pragma omp critical (MagickCore_StatisticImage)
+        #pragma omp atomic
 #endif
-        proceed=SetImageProgress(image,StatisticImageTag,progress++,
-          image->rows);
+        progress++;
+        proceed=SetImageProgress(image,StatisticImageTag,progress,image->rows);
         if (proceed == MagickFalse)
           status=MagickFalse;
       }

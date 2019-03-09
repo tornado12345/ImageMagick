@@ -1,11 +1,11 @@
 /*
-  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
 
-  You may not use this file except in compliance with the License.
+  You may not use this file except in compliance with the License.  You may
   obtain a copy of the License at
 
-    https://www.imagemagick.org/script/license.php
+    https://imagemagick.org/script/license.php
 
   Unless required by applicable law or agreed to in writing, software
   distributed under the License is distributed on an "AS IS" BASIS,
@@ -137,9 +137,8 @@ typedef struct _CacheInfo
   PixelTrait
     alpha_trait;
 
-  MagickBooleanType
-    read_mask,
-    write_mask;
+  ChannelType
+    channels;
 
   size_t
     columns,
@@ -224,6 +223,9 @@ typedef struct _CacheInfo
 
   MagickCLCacheInfo
     opencl;
+
+  MagickBooleanType
+    composite_mask;
 } CacheInfo;
 
 extern MagickPrivate Cache
@@ -239,7 +241,7 @@ extern MagickPrivate ColorspaceType
   GetPixelCacheColorspace(const Cache);
 
 extern MagickPrivate const Quantum
-  *GetVirtualPixelsFromNexus(const Image *,const VirtualPixelMethod,
+  *GetVirtualPixelCacheNexus(const Image *,const VirtualPixelMethod,
     const ssize_t,const ssize_t,const size_t,const size_t,NexusInfo *,
     ExceptionInfo *) magick_hot_spot,
   *GetVirtualPixelsNexus(const Cache,NexusInfo *magick_restrict);

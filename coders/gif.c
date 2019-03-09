@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    https://www.imagemagick.org/script/license.php                           %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -1085,19 +1085,28 @@ static Image *ReadGIFImage(const ImageInfo *image_info,ExceptionInfo *exception)
               *comments;
 
             size_t
-              length;
+              extent,
+              offset;
 
-            /*
-              Read comment extension.
-            */
             comments=AcquireString((char *) NULL);
-            for (length=0; ; length+=count)
+            extent=MagickPathExtent;
+            for (offset=0; ; offset+=count)
             {
-              count=(ssize_t) ReadBlobBlock(image,buffer);
+              count=ReadBlobBlock(image,buffer);
               if (count == 0)
                 break;
               buffer[count]='\0';
-              (void) ConcatenateString(&comments,(const char *) buffer);
+              if ((ssize_t) (count+offset+MagickPathExtent) >= (ssize_t) extent)
+                {
+                  extent<<=1;
+                  comments=(char *) ResizeQuantumMemory(comments,extent+
+                    MagickPathExtent,sizeof(*comments));
+                  if (comments == (char *) NULL)
+                    ThrowGIFException(ResourceLimitError,
+                      "MemoryAllocationFailed");
+                }
+              (void) CopyMagickString(&comments[offset],(char *) buffer,extent-
+                offset);
             }
             (void) SetImageProperty(meta_image,"comment",comments,exception);
             comments=DestroyString(comments);
@@ -1238,12 +1247,8 @@ static Image *ReadGIFImage(const ImageInfo *image_info,ExceptionInfo *exception)
         AcquireNextImage(image_info,image,exception);
         if (GetNextImageInList(image) == (Image *) NULL)
           {
-            if (profiles != (LinkedListInfo *) NULL)
-              profiles=DestroyLinkedList(profiles,DestroyGIFProfile);
-            image=DestroyImageList(image);
-            global_colormap=(unsigned char *) RelinquishMagickMemory(
-              global_colormap);
-            return((Image *) NULL);
+            status=MagickFalse;
+            break;
           }
         image=SyncNextImageInList(image);
       }
@@ -1266,7 +1271,10 @@ static Image *ReadGIFImage(const ImageInfo *image_info,ExceptionInfo *exception)
       ((size_t) (flag & 0x07)+1);
     image->colors=local_colors;
     if (opacity >= (ssize_t) image->colors)
-      image->colors=(size_t) (opacity+1);
+      {
+        image->colors++;
+        opacity=(-1);
+      }
     image->ticks_per_second=100;
     image->alpha_trait=opacity >= 0 ? BlendPixelTrait : UndefinedPixelTrait;
     if ((image->columns == 0) || (image->rows == 0))
@@ -1393,6 +1401,8 @@ static Image *ReadGIFImage(const ImageInfo *image_info,ExceptionInfo *exception)
   if ((image->columns == 0) || (image->rows == 0))
     ThrowReaderException(CorruptImageError,"NegativeOrZeroImageSize");
   (void) CloseBlob(image);
+  if (status == MagickFalse)
+    return(DestroyImageList(image));
   return(GetFirstImageInList(image));
 }
 
@@ -1718,8 +1728,7 @@ static MagickBooleanType WriteGIFImage(const ImageInfo *image_info,Image *image,
           0));
         (void) WriteBlobByte(image,(unsigned char) 0x00);
         value=GetImageProperty(image,"comment",exception);
-        if ((LocaleCompare(write_info->magick,"GIF87") != 0) &&
-            (value != (const char *) NULL))
+        if (value != (const char *) NULL)
           {
             register const char
               *p;

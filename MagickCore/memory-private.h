@@ -1,11 +1,11 @@
 /*
-  Copyright 1999-2018 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
-  You may not use this file except in compliance with the License.
+  You may not use this file except in compliance with the License.  You may
   obtain a copy of the License at
   
-    https://www.imagemagick.org/script/license.php
+    https://imagemagick.org/script/license.php
   
   Unless required by applicable law or agreed to in writing, software
   distributed under the License is distributed on an "AS IS" BASIS,
@@ -25,9 +25,9 @@ extern "C" {
 #include "MagickCore/exception-private.h"
 
 #if defined(__powerpc__)
-#  define CACHE_LINE_SIZE  128
+#  define CACHE_LINE_SIZE  (16*sizeof(void *))
 #else
-#  define CACHE_LINE_SIZE  64
+#  define CACHE_LINE_SIZE  (8*sizeof(void *))
 #endif
 
 #define CacheAlign(size)  ((size) < CACHE_LINE_SIZE ? CACHE_LINE_SIZE : (size))
@@ -45,6 +45,9 @@ extern "C" {
 
 MagickExport MagickBooleanType 
   HeapOverflowSanityCheck(const size_t,const size_t) magick_alloc_sizes(1,2);
+
+MagickExport size_t
+  GetMaxMemoryRequest(void);
 
 extern MagickPrivate void
   ResetMaxMemoryRequest(void),
