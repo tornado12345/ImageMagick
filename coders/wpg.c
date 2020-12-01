@@ -16,7 +16,7 @@
 %                                 June 2000                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -561,12 +561,14 @@ static int UnpackWPG2Raster(Image *image,int bpp,ExceptionInfo *exception)
     RunCount,
     XorMe = 0;
 
+  register ssize_t
+    i;
+
   size_t
     x,
     y;
 
   ssize_t
-    i,
     ldblk;
 
   unsigned int
@@ -615,7 +617,7 @@ static int UnpackWPG2Raster(Image *image,int bpp,ExceptionInfo *exception)
           RunCount=ReadBlobByte(image);   /* BLK */
           if (RunCount < 0)
             break;
-          for(i=0; i < SampleSize*(RunCount+1); i++)
+          for(i=0; i < ((ssize_t) SampleSize*(RunCount+1)); i++)
             {
               InsertByte6(0);
             }
@@ -644,8 +646,12 @@ static int UnpackWPG2Raster(Image *image,int bpp,ExceptionInfo *exception)
             /* duplicate the previous row RunCount x */
             for(i=0;i<=RunCount;i++)
               {
-                if (InsertRow(image,BImgBuff,(ssize_t) (image->rows > y ? y : image->rows-1),bpp,exception) != MagickFalse)
-                  y++;
+                if (InsertRow(image,BImgBuff,(ssize_t) (image->rows > y ? y : image->rows-1),bpp,exception) == MagickFalse)
+                  {
+                    BImgBuff=(unsigned char *) RelinquishMagickMemory(BImgBuff);
+                    return(-3);
+                  }
+                y++;
               }
           }
           break;
@@ -653,7 +659,7 @@ static int UnpackWPG2Raster(Image *image,int bpp,ExceptionInfo *exception)
           RunCount=ReadBlobByte(image);   /* WHT */
           if (RunCount < 0)
             break;
-          for(i=0; i < SampleSize*(RunCount+1); i++)
+          for(i=0; i < ((ssize_t) SampleSize*(RunCount+1)); i++)
             {
               InsertByte6(0xFF);
             }
@@ -670,7 +676,7 @@ static int UnpackWPG2Raster(Image *image,int bpp,ExceptionInfo *exception)
                   InsertByte6(SampleBuffer[bbuf]);
             }
           else {      /* NRP */
-            for(i=0; i< SampleSize*(RunCount+1);i++)
+            for(i=0; i < (ssize_t) (SampleSize*(RunCount+1)); i++)
               {
                 bbuf=ReadBlobByte(image);
                 InsertByte6(bbuf);
@@ -833,8 +839,8 @@ static Image *ExtractPostscript(Image *image,const ImageInfo *image_info,
   if(magic_info == (const MagicInfo *) NULL) goto FINISH_UNL;
   /*     printf("Detected:%s  \n",magic_info->name); */
   if(exception->severity != UndefinedException) goto FINISH_UNL;
-  (void) strncpy(clone_info->magick,GetMagicName(magic_info),
-    MagickPathExtent-1);
+  (void) CopyMagickString(clone_info->magick,GetMagicName(magic_info),
+    MagickPathExtent);
   if (LocaleCompare(clone_info->magick,"PFB") != 0)
     {      
       ThrowException(exception,CorruptImageError,"ImproperImageHeader",
@@ -1334,6 +1340,10 @@ static Image *ReadWPGImage(const ImageInfo *image_info,
                 }
 
               /* Allocate next image structure. */
+              if ((image_info->ping != MagickFalse) &&
+                  (image_info->number_scenes != 0))
+                if (image->scene >= (image_info->scene+image_info->number_scenes-1))
+                  goto Finish;
               AcquireNextImage(image_info,image,exception);
               image->depth=8;
               if (image->next == (Image *) NULL)
@@ -1537,6 +1547,10 @@ static Image *ReadWPGImage(const ImageInfo *image_info,
 
 
               /* Allocate next image structure. */
+              if ((image_info->ping != MagickFalse) &&
+                  (image_info->number_scenes != 0))
+                if (image->scene >= (image_info->scene+image_info->number_scenes-1))
+                  goto Finish;
               AcquireNextImage(image_info,image,exception);
               image->depth=8;
               if (image->next == (Image *) NULL)

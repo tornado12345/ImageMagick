@@ -16,11 +16,11 @@ PACKAGE_CHANGE_DATE=`awk '/^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/ { print 
 #
 # Package version.  This is is the numeric version suffix applied to
 # PACKAGE_NAME (e.g. "1.0.0").
-PACKAGE_VERSION='7.0.8'
-PACKAGE_PERL_VERSION='7.0.8'
-PACKAGE_LIB_VERSION="0x708"
-PACKAGE_RELEASE="33"
-PACKAGE_LIB_VERSION_NUMBER="7,0,8,${PACKAGE_RELEASE}"
+PACKAGE_VERSION='7.0.10'
+PACKAGE_PERL_VERSION='7.0.10'
+PACKAGE_LIB_VERSION="0x70A"
+PACKAGE_RELEASE="46"
+PACKAGE_LIB_VERSION_NUMBER="7,0,10,${PACKAGE_RELEASE}"
 PACKAGE_RELEASE_DATE_RAW=`date +%F`
 PACKAGE_RELEASE_DATE_REPRODUCIBLE="${PACKAGE_CHANGE_DATE}"
 PACKAGE_STRING="$PACKAGE_NAME $PACKAGE_VERSION"
@@ -31,17 +31,19 @@ PACKAGE_STRING="$PACKAGE_NAME $PACKAGE_VERSION"
 PACKAGE_VERSION_ADDENDUM="-${PACKAGE_RELEASE}"
 
 #
-# Versions are denoted using a standard triplet of integers:
-# MAJOR.MINOR.PATCH. The basic intent is that MAJOR versions are
-# incompatible, large-scale upgrades of the API. MINOR versions retain
-# source and binary compatibility with older minor versions, and changes
-# in the PATCH level are perfectly compatible, forwards and backwards.
-# See http://apr.apache.org/versioning.html.
+# If the library source code has changed at all since the last update,
+# increment revision (‘c:r:a’ becomes ‘c:r+1:a’).  If any interfaces have been
+# added, removed, or changed since the last update, increment current, and set
+# revision to 0.  If any interfaces have been added since the last public
+# release, then increment age.  If any interfaces have been removed or changed
+# since the last public release, then set age to 0.
 #
 # PLEASE NOTE that doing a SO BUMP aka raising the CURRENT REVISION
 # could be avoided using libversioning aka map files.  You MUST change .map
 # files if you raise these versions.
-MAGICK_LIBRARY_CURRENT=6
+#
+# Bump the minor release # whenever there is an SOVersion bump.
+MAGICK_LIBRARY_CURRENT=8
 MAGICK_LIBRARY_REVISION=0
 MAGICK_LIBRARY_AGE=0
 

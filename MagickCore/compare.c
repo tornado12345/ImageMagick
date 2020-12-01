@@ -17,7 +17,7 @@
 %                               December 2003                                 %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -78,7 +78,7 @@
 %                                                                             %
 %                                                                             %
 %                                                                             %
-%   C o m p a r e I m a g e                                                   %
+%   C o m p a r e I m a g e s                                                 %
 %                                                                             %
 %                                                                             %
 %                                                                             %
@@ -282,7 +282,8 @@ MagickExport Image *CompareImages(Image *image,const Image *reconstruct_image,
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
         double
-          distance;
+          distance,
+          pixel;
 
         PixelChannel channel = GetPixelChannelChannel(image,i);
         PixelTrait traits = GetPixelChannelTraits(image,channel);
@@ -293,10 +294,11 @@ MagickExport Image *CompareImages(Image *image,const Image *reconstruct_image,
             ((reconstruct_traits & UpdatePixelTrait) == 0))
           continue;
         if (channel == AlphaPixelChannel)
-          distance=(double) p[i]-GetPixelChannel(reconstruct_image,channel,q);
+          pixel=(double) p[i]-GetPixelChannel(reconstruct_image,channel,q);
         else
-          distance=Sa*p[i]-Da*GetPixelChannel(reconstruct_image,channel,q);
-        if ((distance*distance) > fuzz)
+          pixel=Sa*p[i]-Da*GetPixelChannel(reconstruct_image,channel,q);
+        distance=pixel*pixel;
+        if (distance >= fuzz)
           {
             difference=MagickTrue;
             break;
@@ -383,9 +385,7 @@ static MagickBooleanType GetAbsoluteDistortion(const Image *image,
     Compute the absolute difference in pixels between two images.
   */
   status=MagickTrue;
-  fuzz=(double) MagickMin(GetPixelChannels(image),
-    GetPixelChannels(reconstruct_image))*
-    GetFuzzyColorDistance(image,reconstruct_image);
+  fuzz=GetFuzzyColorDistance(image,reconstruct_image);
   rows=MagickMax(image->rows,reconstruct_image->rows);
   columns=MagickMax(image->columns,reconstruct_image->columns);
   image_view=AcquireVirtualCacheView(image,exception);
@@ -421,7 +421,6 @@ static MagickBooleanType GetAbsoluteDistortion(const Image *image,
     {
       double
         Da,
-        distance,
         Sa;
 
       MagickBooleanType
@@ -438,12 +437,12 @@ static MagickBooleanType GetAbsoluteDistortion(const Image *image,
           continue;
         }
       difference=MagickFalse;
-      distance=0.0;
       Sa=QuantumScale*GetPixelAlpha(image,p);
       Da=QuantumScale*GetPixelAlpha(reconstruct_image,q);
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
         double
+          distance,
           pixel;
 
         PixelChannel channel = GetPixelChannelChannel(image,i);
@@ -458,8 +457,8 @@ static MagickBooleanType GetAbsoluteDistortion(const Image *image,
           pixel=(double) p[i]-GetPixelChannel(reconstruct_image,channel,q);
         else
           pixel=Sa*p[i]-Da*GetPixelChannel(reconstruct_image,channel,q);
-        distance+=pixel*pixel;
-        if (distance > fuzz)
+        distance=pixel*pixel;
+        if (distance >= fuzz)
           {
             channel_distortion[i]++;
             difference=MagickTrue;

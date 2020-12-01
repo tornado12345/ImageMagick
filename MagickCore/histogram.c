@@ -18,7 +18,7 @@
 %                                August 2009                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -731,7 +731,7 @@ static MagickBooleanType CheckImageColors(const Image *image,
             Add this unique color to the color list.
           */
           if (node_info->number_unique == 0)
-            node_info->list=(PixelInfo *) AcquireMagickMemory(
+            node_info->list=(PixelInfo *) AcquireQuantumMemory(1,
               sizeof(*node_info->list));
           else
             node_info->list=(PixelInfo *) ResizeQuantumMemory(node_info->list,
@@ -987,12 +987,12 @@ static int HistogramCompare(const void *x,const void *y)
   color_1=(const PixelInfo *) x;
   color_2=(const PixelInfo *) y;
   if (color_2->red != color_1->red)
-    return((int) color_1->red-(int) color_2->red);
+    return((int) ((ssize_t) color_1->red-(ssize_t) color_2->red));
   if (color_2->green != color_1->green)
-    return((int) color_1->green-(int) color_2->green);
+    return((int) ((ssize_t) color_1->green-(ssize_t) color_2->green));
   if (color_2->blue != color_1->blue)
-    return((int) color_1->blue-(int) color_2->blue);
-  return((int) color_2->count-(int) color_1->count);
+    return((int) ((ssize_t) color_1->blue-(ssize_t) color_2->blue));
+  return((int) ((ssize_t) color_2->count-(ssize_t) color_1->count));
 }
 
 #if defined(__cplusplus) || defined(c_plusplus)
@@ -1006,6 +1006,7 @@ MagickExport size_t GetNumberColors(const Image *image,FILE *file,
 
   char
     color[MagickPathExtent],
+    count[MagickPathExtent],
     hex[MagickPathExtent],
     tuple[MagickPathExtent];
 
@@ -1051,29 +1052,28 @@ MagickExport size_t GetNumberColors(const Image *image,FILE *file,
   {
     pixel=(*p);
     (void) CopyMagickString(tuple,"(",MagickPathExtent);
-    ConcatenateColorComponent(&pixel,RedPixelChannel,X11Compliance,tuple);
+    ConcatenateColorComponent(&pixel,RedPixelChannel,NoCompliance,tuple);
     (void) ConcatenateMagickString(tuple,",",MagickPathExtent);
-    ConcatenateColorComponent(&pixel,GreenPixelChannel,X11Compliance,tuple);
+    ConcatenateColorComponent(&pixel,GreenPixelChannel,NoCompliance,tuple);
     (void) ConcatenateMagickString(tuple,",",MagickPathExtent);
-    ConcatenateColorComponent(&pixel,BluePixelChannel,X11Compliance,tuple);
+    ConcatenateColorComponent(&pixel,BluePixelChannel,NoCompliance,tuple);
     if (pixel.colorspace == CMYKColorspace)
       {
         (void) ConcatenateMagickString(tuple,",",MagickPathExtent);
-        ConcatenateColorComponent(&pixel,BlackPixelChannel,X11Compliance,
+        ConcatenateColorComponent(&pixel,BlackPixelChannel,NoCompliance,
           tuple);
       }
     if (pixel.alpha_trait != UndefinedPixelTrait)
       {
         (void) ConcatenateMagickString(tuple,",",MagickPathExtent);
-        ConcatenateColorComponent(&pixel,AlphaPixelChannel,X11Compliance,
+        ConcatenateColorComponent(&pixel,AlphaPixelChannel,NoCompliance,
           tuple);
       }
     (void) ConcatenateMagickString(tuple,")",MagickPathExtent);
     (void) QueryColorname(image,&pixel,SVGCompliance,color,exception);
     GetColorTuple(&pixel,MagickTrue,hex);
-    (void) FormatLocaleFile(file,"%10.20g",(double) ((MagickOffsetType)
-      p->count));
-    (void) FormatLocaleFile(file,": %s %s %s\n",tuple,hex,color);
+    (void) sprintf(count,"%g:",(double) ((MagickOffsetType) p->count));
+    (void) FormatLocaleFile(file,"    %s %s %s %s\n",count,tuple,hex,color);
     if (image->progress_monitor != (MagickProgressMonitor) NULL)
       {
         MagickBooleanType

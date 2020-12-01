@@ -18,7 +18,7 @@
 %                    Based on kmiya's sixel (2014-03-28)                      %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -203,7 +203,8 @@ static unsigned char *get_params(unsigned char *p, int *param, int *len)
         }
         if (isdigit((int) ((unsigned char) *p))) {
             for (n = 0; isdigit((int) ((unsigned char) *p)); p++) {
-                n = (int) ((ssize_t) n * 10 + (*p - '0'));
+                if (n <= (INT_MAX/10))
+                  n = (int) ((ssize_t) n * 10 + (*p - '0'));
             }
             if (*len < 10) {
                 param[(*len)++] = n;
@@ -241,7 +242,7 @@ MagickBooleanType sixel_decode(Image *image,
     int attributed_pan, attributed_pad;
     int attributed_ph, attributed_pv;
     int repeat_count, color_index, max_color_index = 2, background_color_index;
-    int param[10];
+    int param[10] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
     int sixel_palet[SIXEL_PALETTE_MAX];
     unsigned char *imbuf, *dmbuf;
     int imsx, imsy;
@@ -355,8 +356,8 @@ MagickBooleanType sixel_decode(Image *image,
 
             if (n > 0) attributed_pad = param[0];
             if (n > 1) attributed_pan = param[1];
-            if (n > 2 && param[2] > 0) attributed_ph = param[2];
-            if (n > 3 && param[3] > 0) attributed_pv = param[3];
+            if (n > 2 && param[2] > 0) attributed_ph = param[2] & 0xffff;
+            if (n > 3 && param[3] > 0) attributed_pv = param[3] & 0xffff;
 
             if (attributed_pan <= 0) attributed_pan = 1;
             if (attributed_pad <= 0) attributed_pad = 1;
@@ -408,7 +409,7 @@ MagickBooleanType sixel_decode(Image *image,
                     if (param[2] > 360) param[2] = 360;
                     if (param[3] > 100) param[3] = 100;
                     if (param[4] > 100) param[4] = 100;
-                    sixel_palet[color_index] = hls_to_rgb(param[2] * 100 / 360, param[3], param[4]);
+                    sixel_palet[color_index] = hls_to_rgb((int) ((ssize_t) param[2] * 100 / 360), param[3], param[4]);
                 } else if (param[1] == 2) {    /* RGB */
                     if (param[2] > 100) param[2] = 100;
                     if (param[3] > 100) param[3] = 100;
@@ -1054,10 +1055,12 @@ static Image *ReadSIXELImage(const ImageInfo *image_info,ExceptionInfo *exceptio
   /*
     Decode SIXEL
   */
+  sixel_pixels=(unsigned char *) NULL;
   if (sixel_decode(image,(unsigned char *) sixel_buffer,&sixel_pixels,&image->columns,&image->rows,&sixel_palette,&image->colors,exception) == MagickFalse)
     {
       sixel_buffer=(char *) RelinquishMagickMemory(sixel_buffer);
-      sixel_pixels=(unsigned char *) RelinquishMagickMemory(sixel_pixels);
+      if (sixel_pixels != (unsigned char *) NULL)
+        sixel_pixels=(unsigned char *) RelinquishMagickMemory(sixel_pixels);
       ThrowReaderException(CorruptImageError,"CorruptImage");
     }
   sixel_buffer=(char *) RelinquishMagickMemory(sixel_buffer);

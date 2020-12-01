@@ -17,7 +17,7 @@
 %                                 July 2018                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -96,7 +96,8 @@
 static Image *ReadCUBEImage(const ImageInfo *image_info,
   ExceptionInfo *exception)
 {
-#define FlattenCube(level,b,g,r)  ((ssize_t) ((b)*(level)*(level)+(g)*(level)+(r)))
+#define FlattenCube(level,b,g,r)  \
+  ((ssize_t) ((b)*(level)*(level)+(g)*(level)+(r)))
 
   typedef struct _CubePixel
   {
@@ -165,15 +166,14 @@ static Image *ReadCUBEImage(const ImageInfo *image_info,
       *q;
 
     q=p;
-    GetNextToken(q,&q,MagickPathExtent,token);
+    (void) GetNextToken(q,&q,MagickPathExtent,token);
     if ((*token == '#') || (*token == '\0'))
       continue;
-    if ((LocaleCompare(token,"LUT_1D_SIZE") == 0) ||
-        (LocaleCompare(token,"LUT_3D_SIZE") == 0))
+    if (((LocaleCompare(token,"LUT_1D_SIZE") == 0) ||
+         (LocaleCompare(token,"LUT_3D_SIZE") == 0)) &&
+        (cube_info == (MemoryInfo *) NULL))
       {
-        if (cube_info != (MemoryInfo *) NULL)
-          cube_info=RelinquishVirtualMemory(cube_info);
-        GetNextToken(q,&q,MagickPathExtent,value);
+        (void) GetNextToken(q,&q,MagickPathExtent,value);
         cube_level=(size_t) StringToLong(value);
         if (LocaleCompare(token,"LUT_1D_SIZE") == 0)
           cube_level=(size_t) ceil(pow((double) cube_level,1.0/3.0));
@@ -195,21 +195,21 @@ static Image *ReadCUBEImage(const ImageInfo *image_info,
     else
       if (LocaleCompare(token,"TITLE ") == 0)
         {
-          GetNextToken(q,&q,MagickPathExtent,value);
+          (void) GetNextToken(q,&q,MagickPathExtent,value);
           (void) SetImageProperty(image,"title",value,exception);
         }
       else
         if (cube_level != 0)
           {
             char
-              *q;
+              *r;
 
             if (n >= (ssize_t) (cube_level*cube_level*cube_level))
               break;
-            q=buffer;
-            cube[n].r=StringToDouble(q,&q);
-            cube[n].g=StringToDouble(q,&q);
-            cube[n].b=StringToDouble(q,&q);
+            r=buffer;
+            cube[n].r=StringToDouble(r,&r);
+            cube[n].g=StringToDouble(r,&r);
+            cube[n].b=StringToDouble(r,&r);
             n++;
           }
         else
@@ -224,7 +224,7 @@ static Image *ReadCUBEImage(const ImageInfo *image_info,
       ThrowReaderException(CorruptImageError,"ImproperImageHeader");
     }
   /*
-    Write HALD image.
+    Convert CUBE image to HALD.
   */
   status=MagickTrue;
   hald_level=image_info->scene;

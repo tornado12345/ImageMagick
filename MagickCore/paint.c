@@ -17,7 +17,7 @@
 %                                 July 1998                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -186,8 +186,7 @@ MagickExport MagickBooleanType FloodfillPaintImage(Image *image,
   /*
     Set floodfill state.
   */
-  floodplane_image=CloneImage(image,0,0,MagickTrue,
-    exception);
+  floodplane_image=CloneImage(image,0,0,MagickTrue,exception);
   if (floodplane_image == (Image *) NULL)
     return(MagickFalse);
   floodplane_image->alpha_trait=UndefinedPixelTrait;
@@ -605,8 +604,7 @@ MagickExport MagickBooleanType GradientImage(Image *image,
   if (gradient->stops == (StopInfo *) NULL)
     ThrowBinaryException(ResourceLimitError,"MemoryAllocationFailed",
       image->filename);
-  (void) memcpy(gradient->stops,stops,(size_t) number_stops*
-    sizeof(*stops));
+  (void) memcpy(gradient->stops,stops,(size_t) number_stops*sizeof(*stops));
   /*
     Draw a gradient on the image.
   */

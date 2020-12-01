@@ -1,4 +1,4 @@
-#  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization
+#  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization
 #  dedicated to making software imaging solutions freely available.
 #
 #  You may not use this file except in compliance with the License.  You may
@@ -57,6 +57,11 @@ MAGICKCORE_JPEG_MODULES = coders/jpeg.la
 MAGICKCORE_JPEG_SRCS = coders/jpeg.c
 endif
 
+if JXL_DELEGATE
+MAGICKCORE_JXL_MODULES = coders/jxl.la
+MAGICKCORE_JXL_SRCS = coders/jxl.c
+endif
+
 if LIBOPENJP2_DELEGATE
 MAGICKCORE_JP2_MODULES = coders/jp2.la
 MAGICKCORE_JP2_SRCS = coders/jp2.c
@@ -98,117 +103,265 @@ MAGICK_CODER_CPPFLAGS = \
 
 MAGICKCORE_CODER_SRCS = \
 	coders/aai.c \
+	coders/aai.h \
 	coders/art.c \
+	coders/art.h \
+	coders/ashlar.c \
+	coders/ashlar.h \
 	coders/avs.c \
+	coders/avs.h \
 	coders/bgr.c \
+	coders/bgr.h \
 	coders/bmp.c \
+	coders/bmp.h \
 	coders/braille.c \
+	coders/braille.h \
+	coders/bytebuffer-private.h \
 	coders/cals.c \
+	coders/cals.h \
 	coders/caption.c \
+	coders/caption.h \
 	coders/cin.c \
+	coders/cin.h \
 	coders/cip.c \
+	coders/cip.h \
+	coders/clipboard.h \
 	coders/clip.c \
+	coders/clip.h \
 	coders/cmyk.c \
+	coders/cmyk.h \
+	coders/coders.h \
+	coders/coders-list.h \
+	coders/coders-private.h \
 	coders/cube.c \
+	coders/cube.h \
 	coders/cut.c \
+	coders/cut.h \
 	coders/dcm.c \
+	coders/dcm.h \
 	coders/dds.c \
+	coders/dds.h \
 	coders/debug.c \
+	coders/debug.h \
 	coders/dib.c \
+	coders/dib.h \
+	coders/djvu.h \
 	coders/dng.c \
+	coders/dng.h \
 	coders/dot.c \
+	coders/dot.h \
+	coders/dps.h \
 	coders/dpx.c \
+	coders/dpx.h \
+	coders/emf.h \
+	coders/ept.h \
+	coders/exr.h \
+	coders/farbfeld.c \
+	coders/farbfeld.h \
 	coders/fax.c \
+	coders/fax.h \
 	coders/fits.c \
+	coders/fits.h \
+	coders/fl32.c \
+	coders/fl32.h \
+	coders/flif.h \
+	coders/fpx.h \
+	coders/ghostscript-private.h \
 	coders/gif.c \
+	coders/gif.h \
 	coders/gradient.c \
+	coders/gradient.h \
 	coders/gray.c \
+	coders/gray.h \
 	coders/hald.c \
+	coders/hald.h \
 	coders/hdr.c \
+	coders/hdr.h \
+	coders/heic.h \
 	coders/histogram.c \
+	coders/histogram.h \
 	coders/hrz.c \
+	coders/hrz.h \
 	coders/html.c \
+	coders/html.h \
 	coders/icon.c \
+	coders/icon.h \
 	coders/info.c \
+	coders/info.h \
 	coders/inline.c \
+	coders/inline.h \
 	coders/ipl.c \
+	coders/ipl.h \
+	coders/jbig.h \
 	coders/jnx.c \
+	coders/jnx.h \
+	coders/jp2.h \
+	coders/jpeg.h \
 	coders/json.c \
+	coders/json.h \
+	coders/jxl.h \
+	coders/kernel.c \
+	coders/kernel.h \
 	coders/label.c \
+	coders/label.h \
 	coders/mac.c \
+	coders/mac.h \
 	coders/magick.c \
+	coders/magick.h \
 	coders/map.c \
+	coders/map.h \
 	coders/mask.c \
+	coders/mask.h \
 	coders/mat.c \
+	coders/mat.h \
 	coders/matte.c \
+	coders/matte.h \
 	coders/meta.c \
+	coders/meta.h \
 	coders/miff.c \
+	coders/miff.h \
 	coders/mono.c \
+	coders/mono.h \
 	coders/mpc.c \
-	coders/mpeg.c \
+	coders/mpc.h \
 	coders/mpr.c \
+	coders/mpr.h \
 	coders/msl.c \
+	coders/msl.h \
 	coders/mtv.c \
+	coders/mtv.h \
 	coders/mvg.c \
+	coders/mvg.h \
 	coders/null.c \
+	coders/null.h \
+	coders/ora.c \
+	coders/ora.h \
 	coders/otb.c \
+	coders/otb.h \
 	coders/palm.c \
+	coders/palm.h \
 	coders/pango.c \
+	coders/pango.h \
 	coders/pattern.c \
+	coders/pattern.h \
 	coders/pcd.c \
+	coders/pcd.h \
 	coders/pcl.c \
+	coders/pcl.h \
 	coders/pcx.c \
+	coders/pcx.h \
 	coders/pdb.c \
+	coders/pdb.h \
 	coders/pdf.c \
+	coders/pdf.h \
 	coders/pes.c \
+	coders/pes.h \
 	coders/pgx.c \
+	coders/pgx.h \
 	coders/pict.c \
+	coders/pict.h \
 	coders/pix.c \
+	coders/pix.h \
 	coders/plasma.c \
+	coders/plasma.h \
+	coders/png.h \
 	coders/pnm.c \
-	coders/ps.c \
+	coders/pnm.h \
 	coders/ps2.c \
+	coders/ps2.h \
 	coders/ps3.c \
+	coders/ps3.h \
+	coders/ps.c \
 	coders/psd.c \
+	coders/psd.h \
 	coders/psd-private.h \
+	coders/psd-private.h \
+	coders/ps.h \
 	coders/pwp.c \
+	coders/pwp.h \
 	coders/raw.c \
+	coders/raw.h \
 	coders/rgb.c \
+	coders/rgb.h \
 	coders/rgf.c \
+	coders/rgf.h \
 	coders/rla.c \
+	coders/rla.h \
 	coders/rle.c \
+	coders/rle.h \
 	coders/scr.c \
 	coders/screenshot.c \
+	coders/screenshot.h \
+	coders/scr.h \
 	coders/sct.c \
+	coders/sct.h \
 	coders/sfw.c \
+	coders/sfw.h \
 	coders/sgi.c \
+	coders/sgi.h \
 	coders/sixel.c \
+	coders/sixel.h \
 	coders/stegano.c \
+	coders/stegano.h \
 	coders/sun.c \
+	coders/sun.h \
 	coders/svg.c \
+	coders/svg.h \
 	coders/tga.c \
+	coders/tga.h \
 	coders/thumbnail.c \
+	coders/thumbnail.h \
+	coders/tiff.h \
 	coders/tile.c \
+	coders/tile.h \
+	coders/tim2.c \
+	coders/tim2.h \
 	coders/tim.c \
+	coders/tim.h \
 	coders/ttf.c \
+	coders/ttf.h \
 	coders/txt.c \
+	coders/txt.h \
 	coders/uil.c \
+	coders/uil.h \
 	coders/url.c \
+	coders/url.h \
 	coders/uyvy.c \
+	coders/uyvy.h \
 	coders/vicar.c \
+	coders/vicar.h \
 	coders/vid.c \
+	coders/vid.h \
+	coders/video.c \
+	coders/video.h \
 	coders/viff.c \
+	coders/viff.h \
 	coders/vips.c \
+	coders/vips.h \
 	coders/wbmp.c \
+	coders/wbmp.h \
+	coders/webp.h \
+	coders/wmf.h \
 	coders/wpg.c \
+	coders/wpg.h \
 	coders/xbm.c \
+	coders/xbm.h \
 	coders/xc.c \
 	coders/xcf.c \
+	coders/xcf.h \
+	coders/xc.h \
+	coders/x.h \
 	coders/xpm.c \
+	coders/xpm.h \
 	coders/xps.c \
+	coders/xps.h \
 	coders/xtrn.c \
+	coders/xtrn.h \
+	coders/xwd.h \
 	coders/ycbcr.c \
+	coders/ycbcr.h \
 	coders/yuv.c \
+	coders/yuv.h \
 	$(MAGICKCORE_DPS_SRCS) \
 	$(MAGICKCORE_DJVU_SRCS) \
 	$(MAGICKCORE_EXR_SRCS) \
@@ -219,6 +372,7 @@ MAGICKCORE_CODER_SRCS = \
 	$(MAGICKCORE_JBIG_SRCS) \
 	$(MAGICKCORE_JPEG_SRCS) \
 	$(MAGICKCORE_JP2_SRCS) \
+	$(MAGICKCORE_JXL_SRCS) \
 	$(MAGICKCORE_PNG_SRCS) \
 	$(MAGICKCORE_TIFF_SRCS) \
 	$(MAGICKCORE_WEBP_SRCS) \
@@ -228,10 +382,12 @@ MAGICKCORE_CODER_SRCS = \
 CODERS_NOINST_HDRS = \
 	coders/aai.h \
 	coders/art.h \
+	coders/ashlar.h \
 	coders/avs.h \
 	coders/bgr.h \
 	coders/bmp.h \
 	coders/braille.h \
+	coders/bytebuffer-private.h \
 	coders/cals.h \
 	coders/caption.h \
 	coders/cin.h \
@@ -256,10 +412,13 @@ CODERS_NOINST_HDRS = \
 	coders/emf.h \
 	coders/ept.h \
 	coders/exr.h \
+	coders/farbfeld.h \
 	coders/fax.h \
 	coders/fits.h \
+	coders/fl32.h \
 	coders/flif.h \
 	coders/fpx.h \
+	coders/ghostscript-private.h \
 	coders/gif.h \
 	coders/gradient.h \
 	coders/gray.h \
@@ -278,6 +437,8 @@ CODERS_NOINST_HDRS = \
 	coders/jp2.h \
 	coders/jpeg.h \
 	coders/json.h \
+	coders/jxl.h \
+	coders/kernel.h \
 	coders/label.h \
 	coders/mac.h \
 	coders/magick.h \
@@ -289,12 +450,12 @@ CODERS_NOINST_HDRS = \
 	coders/miff.h \
 	coders/mono.h \
 	coders/mpc.h \
-	coders/mpeg.h \
 	coders/mpr.h \
 	coders/msl.h \
 	coders/mtv.h \
 	coders/mvg.h \
 	coders/null.h \
+	coders/ora.h \
 	coders/otb.h \
 	coders/palm.h \
 	coders/pango.h \
@@ -336,6 +497,7 @@ CODERS_NOINST_HDRS = \
 	coders/tiff.h \
 	coders/tile.h \
 	coders/tim.h \
+	coders/tim2.h \
 	coders/ttf.h \
 	coders/txt.h \
 	coders/uil.h \
@@ -343,6 +505,7 @@ CODERS_NOINST_HDRS = \
 	coders/uyvy.h \
 	coders/vicar.h \
 	coders/vid.h \
+	coders/video.h \
 	coders/viff.h \
 	coders/vips.h \
 	coders/wbmp.h \
@@ -358,12 +521,13 @@ CODERS_NOINST_HDRS = \
 	coders/xtrn.h \
 	coders/xwd.h \
 	coders/ycbcr.h \
-	coders/yuv.h 
+	coders/yuv.h
 
 if WITH_MODULES
 coders_LTLIBRARIES = \
 	coders/aai.la \
 	coders/art.la \
+	coders/ashlar.la \
 	coders/avs.la \
 	coders/bgr.la \
 	coders/bmp.la \
@@ -383,8 +547,10 @@ coders_LTLIBRARIES = \
 	coders/dng.la \
 	coders/dot.la \
 	coders/dpx.la \
+	coders/farbfeld.la \
 	coders/fax.la \
 	coders/fits.la \
+	coders/fl32.la \
 	coders/gif.la \
 	coders/gradient.la \
 	coders/gray.la \
@@ -399,6 +565,7 @@ coders_LTLIBRARIES = \
 	coders/ipl.la \
 	coders/jnx.la \
 	coders/json.la \
+	coders/kernel.la \
 	coders/label.la \
 	coders/mac.la \
 	coders/magick.la \
@@ -410,12 +577,12 @@ coders_LTLIBRARIES = \
 	coders/miff.la \
 	coders/mono.la \
 	coders/mpc.la \
-	coders/mpeg.la \
 	coders/mpr.la \
 	coders/msl.la \
 	coders/mtv.la \
 	coders/mvg.la \
 	coders/null.la \
+	coders/ora.la \
 	coders/otb.la \
 	coders/palm.la \
 	coders/pango.la \
@@ -453,6 +620,7 @@ coders_LTLIBRARIES = \
 	coders/thumbnail.la \
 	coders/tile.la \
 	coders/tim.la \
+	coders/tim2.la \
 	coders/ttf.la \
 	coders/txt.la \
 	coders/uil.la \
@@ -460,6 +628,7 @@ coders_LTLIBRARIES = \
 	coders/uyvy.la \
 	coders/vicar.la \
 	coders/vid.la \
+	coders/video.la \
 	coders/viff.la \
 	coders/vips.la \
 	coders/wbmp.la \
@@ -482,6 +651,7 @@ coders_LTLIBRARIES = \
 	$(MAGICKCORE_JBIG_MODULES) \
 	$(MAGICKCORE_JPEG_MODULES) \
 	$(MAGICKCORE_JP2_MODULES) \
+	$(MAGICKCORE_JXL_MODULES) \
 	$(MAGICKCORE_PNG_MODULES) \
 	$(MAGICKCORE_TIFF_MODULES) \
 	$(MAGICKCORE_WEBP_MODULES) \
@@ -502,6 +672,12 @@ coders_art_la_SOURCES      = coders/art.c
 coders_art_la_CPPFLAGS     = $(MAGICK_CODER_CPPFLAGS)
 coders_art_la_LDFLAGS      = $(MODULECOMMONFLAGS)
 coders_art_la_LIBADD       = $(MAGICKCORE_LIBS)
+
+# ASHLAR coder module
+coders_ashlar_la_SOURCES   = coders/ashlar.c
+coders_ashlar_la_CPPFLAGS  = $(MAGICK_CODER_CPPFLAGS)
+coders_ashlar_la_LDFLAGS   = $(MODULECOMMONFLAGS)
+coders_ashlar_la_LIBADD    = $(MAGICKCORE_LIBS)
 
 # AVS coder module
 coders_avs_la_SOURCES      = coders/avs.c
@@ -653,6 +829,12 @@ coders_exr_la_CPPFLAGS     = $(MAGICK_CODER_CPPFLAGS) $(OPENEXR_CFLAGS)
 coders_exr_la_LDFLAGS      = $(MODULECOMMONFLAGS)
 coders_exr_la_LIBADD       = $(MAGICKCORE_LIBS) $(OPENEXR_LIBS) $(MATH_LIBS)
 
+# FARBFELD coder module
+coders_farbfeld_la_SOURCES     = coders/farbfeld.c
+coders_farbfeld_la_CPPFLAGS    = $(MAGICK_CODER_CPPFLAGS)
+coders_farbfeld_la_LDFLAGS     = $(MODULECOMMONFLAGS)
+coders_farbfeld_la_LIBADD      = $(MAGICKCORE_LIBS) $(MATH_LIBS)
+
 # FAX coder module
 coders_fax_la_SOURCES      = coders/fax.c
 coders_fax_la_CPPFLAGS     = $(MAGICK_CODER_CPPFLAGS)
@@ -664,6 +846,12 @@ coders_fits_la_SOURCES     = coders/fits.c
 coders_fits_la_CPPFLAGS    = $(MAGICK_CODER_CPPFLAGS)
 coders_fits_la_LDFLAGS     = $(MODULECOMMONFLAGS)
 coders_fits_la_LIBADD      = $(MAGICKCORE_LIBS) $(MATH_LIBS)
+
+# FL32 coder module
+coders_fl32_la_SOURCES     = coders/fl32.c
+coders_fl32_la_CPPFLAGS    = $(MAGICK_CODER_CPPFLAGS)
+coders_fl32_la_LDFLAGS     = $(MODULECOMMONFLAGS)
+coders_fl32_la_LIBADD      = $(MAGICKCORE_LIBS) $(MATH_LIBS)
 
 # FLIF coder module
 coders_flif_la_SOURCES      = coders/flif.c
@@ -785,6 +973,18 @@ coders_json_la_CPPFLAGS    = $(MAGICK_CODER_CPPFLAGS)
 coders_json_la_LDFLAGS     = $(MODULECOMMONFLAGS)
 coders_json_la_LIBADD      = $(MAGICKCORE_LIBS)
 
+# JXL coder module
+coders_jxl_la_SOURCES      = coders/jxl.c
+coders_jxl_la_CPPFLAGS     = $(MAGICK_CODER_CPPFLAGS)
+coders_jxl_la_LDFLAGS      = $(MODULECOMMONFLAGS)
+coders_jxl_la_LIBADD       = $(MAGICKCORE_LIBS) $(JXL_LIBS)
+
+# KERNEL coder module
+coders_kernel_la_SOURCES   = coders/kernel.c
+coders_kernel_la_CPPFLAGS  = $(MAGICK_CODER_CPPFLAGS)
+coders_kernel_la_LDFLAGS   = $(MODULECOMMONFLAGS)
+coders_kernel_la_LIBADD    = $(MAGICKCORE_LIBS)
+
 # LABEL coder module
 coders_label_la_SOURCES    = coders/label.c
 coders_label_la_CPPFLAGS   = $(MAGICK_CODER_CPPFLAGS)
@@ -851,12 +1051,6 @@ coders_mpc_la_CPPFLAGS     = $(MAGICK_CODER_CPPFLAGS)
 coders_mpc_la_LDFLAGS      = $(MODULECOMMONFLAGS)
 coders_mpc_la_LIBADD       = $(MAGICKCORE_LIBS)
 
-# MPEG coder module
-coders_mpeg_la_SOURCES     = coders/mpeg.c
-coders_mpeg_la_CPPFLAGS    = $(MAGICK_CODER_CPPFLAGS)
-coders_mpeg_la_LDFLAGS     = $(MODULECOMMONFLAGS)
-coders_mpeg_la_LIBADD      = $(MAGICKCORE_LIBS)
-
 # MPR coder module
 coders_mpr_la_SOURCES      = coders/mpr.c
 coders_mpr_la_CPPFLAGS     = $(MAGICK_CODER_CPPFLAGS)
@@ -886,6 +1080,12 @@ coders_null_la_SOURCES     = coders/null.c
 coders_null_la_CPPFLAGS    = $(MAGICK_CODER_CPPFLAGS)
 coders_null_la_LDFLAGS     = $(MODULECOMMONFLAGS)
 coders_null_la_LIBADD      = $(MAGICKCORE_LIBS)
+
+# ORA coder module
+coders_ora_la_SOURCES     = coders/ora.c
+coders_ora_la_CPPFLAGS    = $(MAGICK_CODER_CPPFLAGS)
+coders_ora_la_LDFLAGS     = $(MODULECOMMONFLAGS)
+coders_ora_la_LIBADD      = $(MAGICKCORE_LIBS) $(LIBZIP_LIBS)
 
 # OTB coder module
 coders_otb_la_SOURCES      = coders/otb.c
@@ -1121,6 +1321,12 @@ coders_tim_la_CPPFLAGS     = $(MAGICK_CODER_CPPFLAGS)
 coders_tim_la_LDFLAGS      = $(MODULECOMMONFLAGS)
 coders_tim_la_LIBADD       = $(MAGICKCORE_LIBS)
 
+# TIM2 coder module
+coders_tim2_la_SOURCES      = coders/tim2.c
+coders_tim2_la_CPPFLAGS     = $(MAGICK_CODER_CPPFLAGS)
+coders_tim2_la_LDFLAGS      = $(MODULECOMMONFLAGS)
+coders_tim2_la_LIBADD       = $(MAGICKCORE_LIBS)
+
 # TTF coder module
 coders_ttf_la_SOURCES      = coders/ttf.c
 coders_ttf_la_CPPFLAGS     = $(MAGICK_CODER_CPPFLAGS)
@@ -1162,6 +1368,12 @@ coders_vid_la_SOURCES      = coders/vid.c
 coders_vid_la_CPPFLAGS     = $(MAGICK_CODER_CPPFLAGS)
 coders_vid_la_LDFLAGS      = $(MODULECOMMONFLAGS)
 coders_vid_la_LIBADD       = $(MAGICKCORE_LIBS)
+
+# VIDEO coder module
+coders_video_la_SOURCES     = coders/video.c
+coders_video_la_CPPFLAGS    = $(MAGICK_CODER_CPPFLAGS)
+coders_video_la_LDFLAGS     = $(MODULECOMMONFLAGS)
+coders_video_la_LIBADD      = $(MAGICKCORE_LIBS)
 
 # VIFF coder module
 coders_viff_la_SOURCES     = coders/viff.c

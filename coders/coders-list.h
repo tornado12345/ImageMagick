@@ -1,12 +1,12 @@
 /*
-  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
-  
+
   You may not use this file except in compliance with the License.  You may
   obtain a copy of the License at
-  
+
     https://imagemagick.org/script/license.php
-  
+
   Unless required by applicable law or agreed to in writing, software
   distributed under the License is distributed on an "AS IS" BASIS,
   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -16,6 +16,7 @@
 
 AddMagickCoder(AAI)
 AddMagickCoder(ART)
+AddMagickCoder(ASHLAR)
 AddMagickCoder(AVS)
 AddMagickCoder(BGR)
 AddMagickCoder(BMP)
@@ -55,8 +56,10 @@ AddMagickCoder(DPX)
 #if defined(MAGICKCORE_OPENEXR_DELEGATE)
   AddMagickCoder(EXR)
 #endif
+AddMagickCoder(FARBFELD)
 AddMagickCoder(FAX)
 AddMagickCoder(FITS)
+AddMagickCoder(FL32)
 #if defined(MAGICKCORE_FLIF_DELEGATE)
   AddMagickCoder(FLIF)
 #endif
@@ -89,6 +92,9 @@ AddMagickCoder(JNX)
   AddMagickCoder(JPEG)
 #endif
 AddMagickCoder(JSON)
+#if defined(MAGICKCORE_JXL_DELEGATE)
+  AddMagickCoder(JXL)
+#endif
 AddMagickCoder(LABEL)
 AddMagickCoder(MAC)
 AddMagickCoder(MAGICK)
@@ -100,12 +106,12 @@ AddMagickCoder(META)
 AddMagickCoder(MIFF)
 AddMagickCoder(MONO)
 AddMagickCoder(MPC)
-AddMagickCoder(MPEG)
 AddMagickCoder(MPR)
 AddMagickCoder(MSL)
 AddMagickCoder(MTV)
 AddMagickCoder(MVG)
 AddMagickCoder(NULL)
+AddMagickCoder(ORA)
 AddMagickCoder(OTB)
 AddMagickCoder(PALM)
 AddMagickCoder(PANGO)
@@ -150,6 +156,7 @@ AddMagickCoder(THUMBNAIL)
 #endif
 AddMagickCoder(TILE)
 AddMagickCoder(TIM)
+AddMagickCoder(TIM2)
 #if defined(MAGICKCORE_FREETYPE_DELEGATE)
   AddMagickCoder(TTF)
 #endif
@@ -159,6 +166,7 @@ AddMagickCoder(URL)
 AddMagickCoder(UYVY)
 AddMagickCoder(VICAR)
 AddMagickCoder(VID)
+AddMagickCoder(VIDEO)
 AddMagickCoder(VIFF)
 AddMagickCoder(VIPS)
 AddMagickCoder(WBMP)

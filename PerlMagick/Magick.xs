@@ -23,7 +23,7 @@
 %                             February 1997                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -440,7 +440,7 @@ static struct
       {"sigma", RealReference}, {"x", IntegerReference},
       {"y", IntegerReference} } },
     { "Identify", { {"file", FileReference}, {"features", StringReference},
-      {"unique", MagickBooleanOptions} } },
+      {"moments", MagickBooleanOptions}, {"unique", MagickBooleanOptions} } },
     { "SepiaTone", { {"threshold", RealReference} } },
     { "SigmoidalContrast", { {"geometry", StringReference},
       {"contrast", RealReference}, {"mid-point", RealReference},
@@ -575,6 +575,15 @@ static struct
     { "CLAHE", { {"geometry", StringReference}, {"width", IntegerReference},
       {"height", IntegerReference}, {"number-bins", IntegerReference},
       {"clip-limit", RealReference} } },
+    { "Kmeans", { {"geometry", StringReference}, {"colors", IntegerReference},
+      {"iterations", IntegerReference}, {"tolerance", RealReference} } },
+    { "ColorThreshold", { {"start-color", StringReference},
+      {"stop-color", StringReference}, {"channel", MagickChannelOptions} } },
+    { "WhiteBalance", { { (const char *) NULL, NullReference } } },
+    { "BilateralBlur", { {"geometry", StringReference},
+      {"width", IntegerReference}, {"height", IntegerReference},
+      {"intensity-sigma", RealReference}, {"spatial-sigma", RealReference},
+      {"channel", MagickChannelOptions} } },
   };
 
 static SplayTreeInfo
@@ -1918,6 +1927,11 @@ static void SetAttribute(pTHX_ struct PackageInfo *info,Image *image,
               (void) ParseGeometry(SvPV(sval,na),&geometry_info);
               info->image_info->pointsize=geometry_info.rho;
             }
+          break;
+        }
+      if (LocaleCompare(attribute,"precision") == 0)
+        {
+          (void) SetMagickPrecision(SvIV(sval));
           break;
         }
       if (info)
@@ -5555,6 +5569,12 @@ Get(ref,...)
               PUSHs(s ? sv_2mortal(s) : &sv_undef);
               continue;
             }
+          if (LocaleCompare(attribute,"precision") == 0)
+            {
+              s=newSViv((ssize_t) GetMagickPrecision());
+              PUSHs(s ? sv_2mortal(s) : &sv_undef);
+              continue;
+            }
           ThrowPerlException(exception,OptionError,"UnrecognizedAttribute",
             attribute);
           break;
@@ -7647,6 +7667,14 @@ Mogrify(ref,...)
     RangeThresholdImage= 296
     CLAHE              = 297
     CLAHEImage         = 298
+    Kmeans             = 299
+    KMeansImage        = 300
+    ColorThreshold     = 301
+    ColorThresholdImage= 302
+    WhiteBalance       = 303
+    WhiteBalanceImage  = 304
+    BilateralBlur      = 305
+    BilateralBlurImage = 306
     MogrifyRegion      = 666
   PPCODE:
   {
@@ -10098,9 +10126,6 @@ Mogrify(ref,...)
         {
           if (attribute_flag[0] == 0)
             argument_list[0].file_reference=(FILE *) NULL;
-          if (attribute_flag[1] != 0)
-            (void) SetImageArtifact(image,"identify:features",
-              argument_list[1].string_reference);
           (void) IdentifyImage(image,argument_list[0].file_reference,
             MagickTrue,exception);
           break;
@@ -10112,7 +10137,7 @@ Mogrify(ref,...)
           if (attribute_flag[2] != 0)
             channel=(ChannelType) argument_list[2].integer_reference;
           channel_mask=SetImageChannelMask(image,channel);
-          BlackThresholdImage(image,argument_list[0].string_reference,
+          (void) BlackThresholdImage(image,argument_list[0].string_reference,
             exception);
           (void) SetImageChannelMask(image,channel_mask);
           break;
@@ -10255,6 +10280,9 @@ Mogrify(ref,...)
               argument_list[1].string_reference);
           if ((attribute_flag[2] != 0) &&
               (argument_list[2].integer_reference != 0))
+            (void) SetImageArtifact(image,"identify:moments","true");
+          if ((attribute_flag[3] != 0) &&
+              (argument_list[3].integer_reference != 0))
             (void) SetImageArtifact(image,"identify:unique","true");
           (void) IdentifyImage(image,argument_list[0].file_reference,
             MagickTrue,exception);
@@ -11499,6 +11527,85 @@ Mogrify(ref,...)
             geometry_info.psi=argument_list[4].real_reference;
           (void) CLAHEImage(image,geometry.width,geometry.height,geometry.x,
             geometry_info.psi,exception);
+          break;
+        }
+        case 150:  /* Kmeans */
+        {
+          if (attribute_flag[0] != 0)
+            {
+              flags=ParseGeometry(argument_list[0].string_reference,
+                &geometry_info);
+              if ((flags & SigmaValue) == 0)
+                geometry_info.sigma=100.0;
+              if ((flags & XiValue) == 0)
+                geometry_info.xi=0.01;
+            }
+          if (attribute_flag[1] != 0)
+            geometry_info.rho=argument_list[1].integer_reference;
+          if (attribute_flag[2] != 0)
+            geometry_info.sigma=argument_list[2].integer_reference;
+          if (attribute_flag[3] != 0)
+            geometry_info.xi=(ChannelType) argument_list[3].real_reference;
+          (void) KmeansImage(image,geometry_info.rho,geometry_info.sigma,
+            geometry_info.xi,exception);
+          break;
+        }
+        case 151:  /* ColorThreshold */
+        {
+          PixelInfo
+            start_color,
+            stop_color;
+
+          (void) QueryColorCompliance("black",AllCompliance,&start_color,
+            exception);
+          (void) QueryColorCompliance("white",AllCompliance,&stop_color,
+            exception);
+          if (attribute_flag[0] != 0)
+            (void) QueryColorCompliance(argument_list[0].string_reference,
+              AllCompliance,&start_color,exception);
+          if (attribute_flag[1] != 0)
+            (void) QueryColorCompliance(argument_list[1].string_reference,
+              AllCompliance,&stop_color,exception);
+          channel_mask=SetImageChannelMask(image,channel);
+          (void) ColorThresholdImage(image,&start_color,&stop_color,exception);
+          (void) SetImageChannelMask(image,channel_mask);
+          break;
+        }
+        case 152:  /* WhiteBalance */
+        {
+          (void) WhiteBalanceImage(image,exception);
+          break;
+        }
+        case 153:  /* BilateralBlur */
+        {
+          if (attribute_flag[0] != 0)
+            {
+              flags=ParseGeometry(argument_list[0].string_reference,
+                &geometry_info);
+              if ((flags & SigmaValue) == 0)
+                geometry_info.sigma=geometry_info.rho;
+              if ((flags & XiValue) == 0)
+                geometry_info.xi=2.0*sqrt(geometry_info.rho*geometry_info.rho+
+                  geometry_info.sigma*geometry_info.sigma);
+              if ((flags & PsiValue) == 0)
+                geometry_info.psi=0.5*sqrt(geometry_info.rho*geometry_info.rho+
+                  geometry_info.sigma*geometry_info.sigma);
+            }
+          if (attribute_flag[1] != 0)
+            geometry_info.rho=(double) argument_list[1].integer_reference;
+          if (attribute_flag[2] != 0)
+            geometry_info.sigma=(double) argument_list[2].integer_reference;
+          if (attribute_flag[3] != 0)
+            geometry_info.xi=argument_list[3].real_reference;
+          if (attribute_flag[4] != 0)
+            geometry_info.psi=argument_list[4].real_reference;
+          if (attribute_flag[5] != 0)
+            channel=(ChannelType) argument_list[5].integer_reference;
+          channel_mask=SetImageChannelMask(image,channel);
+          image=BilateralBlurImage(image,(size_t) geometry_info.rho,(size_t)
+            geometry_info.sigma,geometry_info.xi,geometry_info.psi,exception);
+          if (image != (Image *) NULL)
+            (void) SetImageChannelMask(image,channel_mask);
           break;
         }
       }
@@ -13610,10 +13717,10 @@ QueryFormat(ref,...)
         PUSHs(&sv_undef);
       else
         PUSHs(sv_2mortal(newSVpv(magick_info->description,0)));
-      if (magick_info->module == (char *) NULL)
+      if (magick_info->magick_module == (char *) NULL)
         PUSHs(&sv_undef);
       else
-        PUSHs(sv_2mortal(newSVpv(magick_info->module,0)));
+        PUSHs(sv_2mortal(newSVpv(magick_info->magick_module,0)));
     }
 
   PerlException:

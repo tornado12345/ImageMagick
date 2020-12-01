@@ -2154,10 +2154,10 @@ namespace Magick
           container_->push_back( coderInfo );
         }
         // Intentionally ignore missing module errors
-        catch ( Magick::ErrorModule& )
-          {
-            continue;
-          }
+        catch (Magick::ErrorModule&)
+        {
+          continue;
+        }
       }
     coder_list=(char **) MagickCore::RelinquishMagickMemory( coder_list );
     ThrowPPException(false);
@@ -2236,7 +2236,7 @@ namespace Magick
   template<class InputIterator >
   void combineImages(Image *combinedImage_,InputIterator first_,
     InputIterator last_,const ChannelType channel_,
-    const ColorspaceType colorspace_)
+    const ColorspaceType colorspace_ = MagickCore::sRGBColorspace)
   {
     MagickCore::Image
       *image;

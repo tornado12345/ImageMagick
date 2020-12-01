@@ -17,7 +17,7 @@
 %                            September 1994                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -441,7 +441,7 @@ static ssize_t PrintChannelStatistics(FILE *file,const PixelChannel channel,
   const ChannelStatistics *channel_statistics)
 {
 #define StatisticsFormat "    %s:\n      min: %.*g  (%.*g)\n      " \
-  "max: %.*g (%.*g)\n      mean: %.*g (%.*g)\n      " \
+  "max: %.*g (%.*g)\n      mean: %.*g (%.*g)\n      median: %.*g (%.*g)\n      " \
   "standard deviation: %.*g (%.*g)\n      kurtosis: %.*g\n      " \
   "skewness: %.*g\n      entropy: %.*g\n"
 
@@ -457,6 +457,8 @@ static ssize_t PrintChannelStatistics(FILE *file,const PixelChannel channel,
     channel_statistics[channel].maxima/(double) QuantumRange,
     GetMagickPrecision(),scale*channel_statistics[channel].mean,
     GetMagickPrecision(),channel_statistics[channel].mean/(double) QuantumRange,
+    GetMagickPrecision(),scale*channel_statistics[channel].median,
+    GetMagickPrecision(),channel_statistics[channel].median/(double) QuantumRange,
     GetMagickPrecision(),scale*channel_statistics[channel].standard_deviation,
     GetMagickPrecision(),channel_statistics[channel].standard_deviation/
     (double) QuantumRange,GetMagickPrecision(),
@@ -519,6 +521,7 @@ MagickExport MagickBooleanType IdentifyImage(Image *image,FILE *file,
     x;
 
   size_t
+    depth,
     distance;
 
   ssize_t
@@ -683,7 +686,29 @@ MagickExport MagickBooleanType IdentifyImage(Image *image,FILE *file,
   p=GetVirtualPixels(image,0,0,1,1,exception);
   ping=p == (const Quantum *) NULL ? MagickTrue : MagickFalse;
   (void) SignatureImage(image,exception);
-  (void) FormatLocaleFile(file,"Image: %s\n",image->filename);
+  channel_statistics=(ChannelStatistics *) NULL;
+  channel_moments=(ChannelMoments *) NULL;
+  channel_phash=(ChannelPerceptualHash *) NULL;
+  channel_features=(ChannelFeatures *) NULL;
+  depth=0;
+  if (ping == MagickFalse)
+    {
+      depth=GetImageDepth(image,exception);
+      channel_statistics=GetImageStatistics(image,exception);
+      artifact=GetImageArtifact(image,"identify:moments");
+      if (artifact != (const char *) NULL)
+        {
+          channel_moments=GetImageMoments(image,exception);
+          channel_phash=GetImagePerceptualHash(image,exception);
+        }
+      artifact=GetImageArtifact(image,"identify:features");
+      if (artifact != (const char *) NULL)
+        {
+          distance=StringToUnsignedLong(artifact);
+          channel_features=GetImageFeatures(image,distance,exception);
+        }
+    }
+  (void) FormatLocaleFile(file,"Image:\n  Filename: %s\n",image->filename);
   if (*image->magick_filename != '\0')
     if (LocaleCompare(image->magick_filename,image->filename) != 0)
       {
@@ -732,43 +757,22 @@ MagickExport MagickBooleanType IdentifyImage(Image *image,FILE *file,
   if (image->type != type)
     (void) FormatLocaleFile(file,"  Base type: %s\n",CommandOptionToMnemonic(
       MagickTypeOptions,(ssize_t) image->type));
-  (void) FormatLocaleFile(file,"  Endianess: %s\n",CommandOptionToMnemonic(
+  (void) FormatLocaleFile(file,"  Endianness: %s\n",CommandOptionToMnemonic(
     MagickEndianOptions,(ssize_t) image->endian));
-  /*
-    Detail channel depth and extrema.
-  */
-  channel_statistics=(ChannelStatistics *) NULL;
-  channel_moments=(ChannelMoments *) NULL;
-  channel_phash=(ChannelPerceptualHash *) NULL;
-  channel_features=(ChannelFeatures *) NULL;
-  scale=1.0;
-  if (ping == MagickFalse)
+  if (depth != 0)
     {
-      size_t
-        depth;
-
-      channel_statistics=GetImageStatistics(image,exception);
-      if (channel_statistics == (ChannelStatistics *) NULL)
-        return(MagickFalse);
-      artifact=GetImageArtifact(image,"identify:moments");
-      if (artifact != (const char *) NULL)
-        {
-          channel_moments=GetImageMoments(image,exception);
-          channel_phash=GetImagePerceptualHash(image,exception);
-        }
-      artifact=GetImageArtifact(image,"identify:features");
-      if (artifact != (const char *) NULL)
-        {
-          distance=StringToUnsignedLong(artifact);
-          channel_features=GetImageFeatures(image,distance,exception);
-        }
-      depth=GetImageDepth(image,exception);
       if (image->depth == depth)
         (void) FormatLocaleFile(file,"  Depth: %.20g-bit\n",(double)
           image->depth);
       else
         (void) FormatLocaleFile(file,"  Depth: %.20g/%.20g-bit\n",(double)
           image->depth,(double) depth);
+    }
+  if (channel_statistics != (ChannelStatistics *) NULL)
+    {
+      /*
+        Detail channel depth and extrema.
+      */
       (void) FormatLocaleFile(file,"  Channel depth:\n");
       switch (colorspace)
       {
@@ -817,9 +821,6 @@ MagickExport MagickBooleanType IdentifyImage(Image *image,FILE *file,
       if (image->depth <= MAGICKCORE_QUANTUM_DEPTH)
         scale=(double) (QuantumRange/((size_t) QuantumRange >> ((size_t)
           MAGICKCORE_QUANTUM_DEPTH-image->depth)));
-    }
-  if (channel_statistics != (ChannelStatistics *) NULL)
-    {
       (void) FormatLocaleFile(file,"  Channel statistics:\n");
       (void) FormatLocaleFile(file,"    Pixels: %.20g\n",(double)
         image->columns*image->rows);
@@ -871,8 +872,8 @@ MagickExport MagickBooleanType IdentifyImage(Image *image,FILE *file,
         }
       }
       if (image->alpha_trait != UndefinedPixelTrait)
-        (void) PrintChannelStatistics(file,AlphaPixelChannel,"Alpha",1.0/
-          scale,channel_statistics);
+        (void) PrintChannelStatistics(file,AlphaPixelChannel,"Alpha",1.0/scale,
+          channel_statistics);
       if ((colorspace != LinearGRAYColorspace) && (colorspace != GRAYColorspace))
         {
           (void) FormatLocaleFile(file,"  Image statistics:\n");
@@ -1115,7 +1116,7 @@ MagickExport MagickBooleanType IdentifyImage(Image *image,FILE *file,
             (void) QueryColorname(image,&pixel,SVGCompliance,color,
               exception);
             GetColorTuple(&pixel,MagickTrue,hex);
-            (void) FormatLocaleFile(file,"  %8ld: %s %s %s\n",(long) i,tuple,
+            (void) FormatLocaleFile(file,"    %g: %s %s %s\n",(double) i,tuple,
               hex,color);
             c++;
           }
@@ -1264,27 +1265,6 @@ MagickExport MagickBooleanType IdentifyImage(Image *image,FILE *file,
       }
       image_info=DestroyImageInfo(image_info);
     }
-  (void) GetImageProperty(image,"exif:*",exception);
-  (void) GetImageProperty(image,"icc:*",exception);
-  (void) GetImageProperty(image,"iptc:*",exception);
-  (void) GetImageProperty(image,"xmp:*",exception);
-  ResetImagePropertyIterator(image);
-  property=GetNextImageProperty(image);
-  if (property != (const char *) NULL)
-    {
-      /*
-        Display image properties.
-      */
-      (void) FormatLocaleFile(file,"  Properties:\n");
-      while (property != (const char *) NULL)
-      {
-        (void) FormatLocaleFile(file,"    %s: ",property);
-        value=GetImageProperty(image,property,exception);
-        if (value != (const char *) NULL)
-          (void) FormatLocaleFile(file,"%s\n",value);
-        property=GetNextImageProperty(image);
-      }
-    }
   (void) FormatLocaleString(key,MagickPathExtent,"8BIM:1999,2998:#1");
   value=GetImageProperty(image,key,exception);
   if (value != (const char *) NULL)
@@ -1297,6 +1277,55 @@ MagickExport MagickBooleanType IdentifyImage(Image *image,FILE *file,
         (void) fputc('\n',file);
       (void) FormatLocaleFile(file,"%s\n",value);
     }
+  {
+    char
+      *points,
+      value[MagickPathExtent];
+
+    PointInfo
+      *bounding_box,
+      *convex_hull;
+
+    register ssize_t
+      n;
+
+    size_t
+      number_points;
+
+    /*
+      Display convex hull & minimum bounding box.
+    */
+    convex_hull=GetImageConvexHull(image,&number_points,exception);
+    if (convex_hull != (PointInfo *) NULL)
+      {
+        points=AcquireString("");
+        for (n=0; n < (ssize_t) number_points; n++)
+        {
+          (void) FormatLocaleString(value,MagickPathExtent,"%g,%g ",
+            convex_hull[n].x,convex_hull[n].y);
+          (void) ConcatenateString(&points,value);
+        }
+        convex_hull=(PointInfo *) RelinquishMagickMemory(convex_hull);
+        (void) FormatLocaleFile(file,"  Convex hull: ");
+        (void) FormatLocaleFile(file,"%s\n",points);
+        points=DestroyString(points);
+      }
+    bounding_box=GetImageMinimumBoundingBox(image,&number_points,exception);
+    if (bounding_box != (PointInfo *) NULL)
+      {
+        points=AcquireString("");
+        for (n=0; n < (ssize_t) number_points; n++)
+        {
+          (void) FormatLocaleString(value,MagickPathExtent,"%g,%g ",
+            bounding_box[n].x,bounding_box[n].y);
+          (void) ConcatenateString(&points,value);
+        }
+        bounding_box=(PointInfo *) RelinquishMagickMemory(bounding_box);
+        (void) FormatLocaleFile(file,"  Minimum bounding box: ");
+        (void) FormatLocaleFile(file,"%s\n",points);
+        points=DestroyString(points);
+      }
+  }
   ResetImageProfileIterator(image);
   name=GetNextImageProfile(image);
   if (name != (char *) NULL)
@@ -1435,6 +1464,23 @@ MagickExport MagickBooleanType IdentifyImage(Image *image,FILE *file,
         if (image->debug != MagickFalse)
           PrintStringInfo(file,name,profile);
         name=GetNextImageProfile(image);
+      }
+    }
+  ResetImagePropertyIterator(image);
+  property=GetNextImageProperty(image);
+  if (property != (const char *) NULL)
+    {
+      /*
+        Display image properties.
+      */
+      (void) FormatLocaleFile(file,"  Properties:\n");
+      while (property != (const char *) NULL)
+      {
+        (void) FormatLocaleFile(file,"    %s: ",property);
+        value=GetImageProperty(image,property,exception);
+        if (value != (const char *) NULL)
+          (void) FormatLocaleFile(file,"%s\n",value);
+        property=GetNextImageProperty(image);
       }
     }
   ResetImageArtifactIterator(image);

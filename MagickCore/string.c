@@ -17,7 +17,7 @@
 %                               August 2003                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the license.  You may  %
@@ -64,41 +64,6 @@
 #define CharsPerLine  0x14
 
 /*
-  Static declarations.
-*/
-#ifdef __VMS
-#define asciimap AsciiMap
-#endif
-#if !defined(MAGICKCORE_HAVE_STRCASECMP) || !defined(MAGICKCORE_HAVE_STRNCASECMP)
-static const unsigned char
-  AsciiMap[] =
-  {
-    0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b,
-    0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
-    0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x20, 0x21, 0x22, 0x23,
-    0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f,
-    0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3a, 0x3b,
-    0x3c, 0x3d, 0x3e, 0x3f, 0x40, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67,
-    0x68, 0x69, 0x6a, 0x6b, 0x6c, 0x6d, 0x6e, 0x6f, 0x70, 0x71, 0x72, 0x73,
-    0x74, 0x75, 0x76, 0x77, 0x78, 0x79, 0x7a, 0x5b, 0x5c, 0x5d, 0x5e, 0x5f,
-    0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67, 0x68, 0x69, 0x6a, 0x6b,
-    0x6c, 0x6d, 0x6e, 0x6f, 0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77,
-    0x78, 0x79, 0x7a, 0x7b, 0x7c, 0x7d, 0x7e, 0x7f, 0x80, 0x81, 0x82, 0x83,
-    0x84, 0x85, 0x86, 0x87, 0x88, 0x89, 0x8a, 0x8b, 0x8c, 0x8d, 0x8e, 0x8f,
-    0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97, 0x98, 0x99, 0x9a, 0x9b,
-    0x9c, 0x9d, 0x9e, 0x9f, 0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7,
-    0xa8, 0xa9, 0xaa, 0xab, 0xac, 0xad, 0xae, 0xaf, 0xb0, 0xb1, 0xb2, 0xb3,
-    0xb4, 0xb5, 0xb6, 0xb7, 0xb8, 0xb9, 0xba, 0xbb, 0xbc, 0xbd, 0xbe, 0xbf,
-    0xc0, 0xe1, 0xe2, 0xe3, 0xe4, 0xc5, 0xe6, 0xe7, 0xe8, 0xe9, 0xea, 0xeb,
-    0xec, 0xed, 0xee, 0xef, 0xf0, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7,
-    0xf8, 0xf9, 0xfa, 0xdb, 0xdc, 0xdd, 0xde, 0xdf, 0xe0, 0xe1, 0xe2, 0xe3,
-    0xe4, 0xe5, 0xe6, 0xe7, 0xe8, 0xe9, 0xea, 0xeb, 0xec, 0xed, 0xee, 0xef,
-    0xf0, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7, 0xf8, 0xf9, 0xfa, 0xfb,
-    0xfc, 0xfd, 0xfe, 0xff,
-  };
-#endif
-
-/*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %                                                                             %
 %                                                                             %
@@ -109,7 +74,7 @@ static const unsigned char
 %                                                                             %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-%  AcquireString() returns an new extented string, containing a clone of the
+%  AcquireString() returns an new extended string, containing a clone of the
 %  given string.
 %
 %  An extended string is the string length, plus an extra MagickPathExtent space
@@ -143,7 +108,6 @@ MagickExport char *AcquireString(const char *source)
     sizeof(*destination));
   if (destination == (char *) NULL)
     ThrowFatalException(ResourceLimitFatalError,"UnableToAcquireString");
-  *destination='\0';
   if (source != (char *) NULL)
     (void) memcpy(destination,source,length*sizeof(*destination));
   destination[length]='\0';
@@ -343,6 +307,8 @@ MagickExport StringInfo *CloneStringInfo(const StringInfo *string_info)
   assert(string_info != (StringInfo *) NULL);
   assert(string_info->signature == MagickCoreSignature);
   clone_info=AcquireStringInfo(string_info->length);
+  (void) CloneString(&clone_info->path,string_info->path);
+  (void) CloneString(&clone_info->name,string_info->name);
   if (string_info->length != 0)
     (void) memcpy(clone_info->datum,string_info->datum,string_info->length+1);
   return(clone_info);
@@ -411,8 +377,8 @@ MagickExport int CompareStringInfo(const StringInfo *target,
 %
 %  The format of the ConcatenateMagickString method is:
 %
-%      size_t ConcatenateMagickString(char *destination,const char *source,
-%        const size_t length)
+%      size_t ConcatenateMagickString(char *magick_restrict destination,
+%        const char *magick_restrict source,const size_t length)
 %
 %  A description of each parameter follows:
 %
@@ -423,14 +389,14 @@ MagickExport int CompareStringInfo(const StringInfo *target,
 %    o length: the length of the destination string.
 %
 */
-MagickExport size_t ConcatenateMagickString(char *destination,
-  const char *source,const size_t length)
+MagickExport size_t ConcatenateMagickString(char *magick_restrict destination,
+  const char *magick_restrict source,const size_t length)
 {
   register char
-    *q;
+    *magick_restrict q;
 
   register const char
-    *p;
+    *magick_restrict p;
 
   register size_t
     i;
@@ -479,8 +445,8 @@ MagickExport size_t ConcatenateMagickString(char *destination,
 %
 %  The format of the ConcatenateString method is:
 %
-%      MagickBooleanType ConcatenateString(char **destination,
-%        const char *source)
+%      MagickBooleanType ConcatenateString(char **magick_restrict destination,
+%        const char *magick_restrict source)
 %
 %  A description of each parameter follows:
 %
@@ -489,8 +455,8 @@ MagickExport size_t ConcatenateMagickString(char *destination,
 %    o source: A character string.
 %
 */
-MagickExport MagickBooleanType ConcatenateString(char **destination,
-  const char *source)
+MagickExport MagickBooleanType ConcatenateString(
+  char **magick_restrict destination,const char *magick_restrict source)
 {
   size_t
     destination_length,
@@ -713,7 +679,6 @@ MagickExport char *ConstantString(const char *source)
     destination=(char *) AcquireQuantumMemory(length+1UL,sizeof(*destination));
   if (destination == (char *) NULL)
     ThrowFatalException(ResourceLimitFatalError,"UnableToAcquireString");
-  *destination='\0';
   if (source != (char *) NULL)
     (void) memcpy(destination,source,length*sizeof(*destination));
   destination[length]='\0';
@@ -735,13 +700,12 @@ MagickExport char *ConstantString(const char *source)
 %  out exceeding the given pre-declared length.
 %
 %  The destination buffer is always null-terminated even if the string must be
-%  truncated.  The return value is the minimum of the source string length or
-%  the length parameter.
+%  truncated.  The return value is the length of the string.
 %
 %  The format of the CopyMagickString method is:
 %
-%      size_t CopyMagickString(const char *destination,char *source,
-%        const size_t length)
+%      size_t CopyMagickString(const char *magick_restrict destination,
+%        char *magick_restrict source,const size_t length)
 %
 %  A description of each parameter follows:
 %
@@ -752,14 +716,14 @@ MagickExport char *ConstantString(const char *source)
 %    o length: the length of the destination string.
 %
 */
-MagickExport size_t CopyMagickString(char *destination,const char *source,
-  const size_t length)
+MagickExport size_t CopyMagickString(char *magick_restrict destination,
+  const char *magick_restrict source,const size_t length)
 {
   register char
-    *q;
+    *magick_restrict q;
 
   register const char
-    *p;
+    *magick_restrict p;
 
   register size_t
     n;
@@ -768,34 +732,23 @@ MagickExport size_t CopyMagickString(char *destination,const char *source,
   q=destination;
   for (n=length; n > 4; n-=4)
   {
-    *q=(*p++);
-    if (*q == '\0')
+    if (((*q++)=(*p++)) == '\0')
       return((size_t) (p-source-1));
-    q++;
-    *q=(*p++);
-    if (*q == '\0')
+    if (((*q++)=(*p++)) == '\0')
       return((size_t) (p-source-1));
-    q++;
-    *q=(*p++);
-    if (*q == '\0')
+    if (((*q++)=(*p++)) == '\0')
       return((size_t) (p-source-1));
-    q++;
-    *q=(*p++);
-    if (*q == '\0')
+    if (((*q++)=(*p++)) == '\0')
       return((size_t) (p-source-1));
-    q++;
   }
-  if (n != 0)
-    for (n--; n != 0; n--)
-    {
-      *q=(*p++);
-      if (*q == '\0')
-        return((size_t) (p-source-1));
-      q++;
-    }
   if (length != 0)
-    *q='\0';
-  return((size_t) (p-source-1));
+    {
+      while (--n != 0)
+        if (((*q++)=(*p++)) == '\0')
+          return((size_t) (p-source-1));
+      *q='\0';
+    }
+  return((size_t) (p-source));
 }
 
 /*
@@ -1153,86 +1106,6 @@ MagickExport ssize_t FormatMagickSize(const MagickSizeType size,
   else
     count=FormatLocaleString(format,length,"%.*g%s%s",GetMagickPrecision(),
       extent,units[i],suffix);
-  return(count);
-}
-
-/*
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%                                                                             %
-%                                                                             %
-%                                                                             %
-%  F o r m a t M a g i c k T i m e                                            %
-%                                                                             %
-%                                                                             %
-%                                                                             %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%
-%  FormatMagickTime() returns the specified time in the Internet date/time
-%  format and the length of the timestamp.
-%
-%  The format of the FormatMagickTime method is:
-%
-%      ssize_t FormatMagickTime(const time_t time,const size_t length,
-%        char *timestamp)
-%
-%  A description of each parameter follows.
-%
-%    o time:  the time since the Epoch (00:00:00 UTC, January 1, 1970),
-%      measured in seconds.
-%
-%    o length: the maximum length of the string.
-%
-%    o timestamp:  Return the Internet date/time here.
-%
-*/
-MagickExport ssize_t FormatMagickTime(const time_t time,const size_t length,
-  char *timestamp)
-{
-  ssize_t
-    count;
-
-  struct tm
-    gm_time,
-    local_time;
-
-  time_t
-    timezone;
-
-  assert(timestamp != (char *) NULL);
-  (void) memset(&local_time,0,sizeof(local_time));
-  (void) memset(&gm_time,0,sizeof(gm_time));
-#if defined(MAGICKCORE_HAVE_LOCALTIME_R)
-  (void) localtime_r(&time,&local_time);
-#else
-  {
-    struct tm
-      *my_time;
-
-    my_time=localtime(&time);
-    if (my_time != (struct tm *) NULL)
-      (void) memcpy(&local_time,my_time,sizeof(local_time));
-  }
-#endif
-#if defined(MAGICKCORE_HAVE_GMTIME_R)
-  (void) gmtime_r(&time,&gm_time);
-#else
-  {
-    struct tm
-      *my_time;
-
-    my_time=gmtime(&time);
-    if (my_time != (struct tm *) NULL)
-      (void) memcpy(&gm_time,my_time,sizeof(gm_time));
-  }
-#endif
-  timezone=(time_t) ((local_time.tm_min-gm_time.tm_min)/60+
-    local_time.tm_hour-gm_time.tm_hour+24*((local_time.tm_year-
-    gm_time.tm_year) != 0 ? (local_time.tm_year-gm_time.tm_year) :
-    (local_time.tm_yday-gm_time.tm_yday)));
-  count=FormatLocaleString(timestamp,length,
-    "%04d-%02d-%02dT%02d:%02d:%02d%+03ld:00",local_time.tm_year+1900,
-    local_time.tm_mon+1,local_time.tm_mday,local_time.tm_hour,
-    local_time.tm_min,local_time.tm_sec,(long) timezone);
   return(count);
 }
 
@@ -1687,10 +1560,10 @@ MagickExport void ResetStringInfo(StringInfo *string_info)
 %                                                                             %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-%  SanitizeString() returns an new string removes all characters except
+%  SanitizeString() returns n new string removes all characters except
 %  letters, digits and !#$%&'*+-=?^_`{|}~@.[].
 %
-%  The returned string shoud be freed using DestoryString().
+%  Free the sanitized string with DestroyString().
 %
 %  The format of the SanitizeString method is:
 %
@@ -1713,14 +1586,14 @@ MagickExport char *SanitizeString(const char *source)
     *p;
 
   static char
-    whitelist[] =
+    allowlist[] =
       "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 "
       "$-_.+!*'(),{}|\\^~[]`\"><#%;/?:@&=";
 
   sanitize_source=AcquireString(source);
   p=sanitize_source;
   q=sanitize_source+strlen(sanitize_source);
-  for (p+=strspn(p,whitelist); p != q; p+=strspn(p,whitelist))
+  for (p+=strspn(p,allowlist); p != q; p+=strspn(p,allowlist))
     *p='_';
   return(sanitize_source);
 }
@@ -2292,7 +2165,7 @@ MagickExport double *StringToArrayOfDoubles(const char *string,ssize_t *count,
 %
 %  StringToken() looks for any one of given delimiters and splits the string
 %  into two separate strings by replacing the delimiter character found with a
-%  nul character.
+%  null character.
 %
 %  The given string pointer is changed to point to the string following the
 %  delimiter character found, or NULL.  A pointer to the start of the
@@ -2378,7 +2251,7 @@ MagickExport char *StringToken(const char *delimiters,char **string)
 */
 MagickExport char **StringToList(const char *text)
 {
-  return(StringToStrings(text, (size_t *) NULL));
+  return(StringToStrings(text,(size_t *) NULL));
 }
 
 /*
@@ -2392,7 +2265,7 @@ MagickExport char **StringToList(const char *text)
 %                                                                             %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-%  StringToList() converts a text string into a list by segmenting the text
+%  StringToStrings() converts a text string into a list by segmenting the text
 %  string at each carriage return discovered.  The list is converted to HEX
 %  characters if any control characters are discovered within the text string.
 %
@@ -2486,6 +2359,9 @@ MagickExport char **StringToStrings(const char *text,size_t *count)
       p=text;
       for (i=0; i < (ssize_t) lines; i++)
       {
+        size_t
+          length;
+
         textlist[i]=(char *) AcquireQuantumMemory(2UL*MagickPathExtent,
           sizeof(**textlist));
         if (textlist[i] == (char *) NULL)
@@ -2493,7 +2369,8 @@ MagickExport char **StringToStrings(const char *text,size_t *count)
         (void) FormatLocaleString(textlist[i],MagickPathExtent,"0x%08lx: ",
           (long) (CharsPerLine*i));
         q=textlist[i]+strlen(textlist[i]);
-        for (j=1; j <= (ssize_t) MagickMin(strlen(p),CharsPerLine); j++)
+        length=strlen(p);
+        for (j=1; j <= (ssize_t) MagickMin(length,CharsPerLine); j++)
         {
           (void) FormatLocaleString(hex_string,MagickPathExtent,"%02x",*(p+j));
           (void) CopyMagickString(q,hex_string,MagickPathExtent);
@@ -2509,7 +2386,7 @@ MagickExport char **StringToStrings(const char *text,size_t *count)
             *q++=' ';
         }
         *q++=' ';
-        for (j=1; j <= (ssize_t) MagickMin(strlen(p),CharsPerLine); j++)
+        for (j=1; j <= (ssize_t) MagickMin(length,CharsPerLine); j++)
         {
           if (isprint((int) ((unsigned char) *p)) != 0)
             *q++=(*p);
@@ -2518,8 +2395,8 @@ MagickExport char **StringToStrings(const char *text,size_t *count)
           p++;
         }
         *q='\0';
-        textlist[i]=(char *) ResizeQuantumMemory(textlist[i],q-textlist[i]+1,
-          sizeof(**textlist));
+        textlist[i]=(char *) ResizeQuantumMemory(textlist[i],(size_t) (q-
+          textlist[i]+1),sizeof(**textlist));
         if (textlist[i] == (char *) NULL)
           ThrowFatalException(ResourceLimitFatalError,"UnableToConvertText");
       }

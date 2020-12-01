@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
 
   You may not use this file except in compliance with the License.  You may
@@ -24,7 +24,7 @@
 extern "C" {
 #endif
 
-#define MaxPixelChannels  32
+#define MaxPixelChannels  64
 #undef index
 
 /*
@@ -36,9 +36,12 @@ typedef enum
   RedChannel = 0x0001,
   GrayChannel = 0x0001,
   CyanChannel = 0x0001,
+  LChannel = 0x0001,
   GreenChannel = 0x0002,
   MagentaChannel = 0x0002,
+  aChannel = 0x0002,
   BlueChannel = 0x0004,
+  bChannel = 0x0002,
   YellowChannel = 0x0004,
   BlackChannel = 0x0008,
   AlphaChannel = 0x0010,
@@ -121,7 +124,6 @@ typedef enum
   MeshInterpolatePixel,       /* Triangular Mesh interpolation */
   NearestInterpolatePixel,    /* Nearest Neighbour Only */
   SplineInterpolatePixel      /* Cubic Spline (blurred) interpolation */
-  /* FilterInterpolatePixel,  ** Use resize filter - (very slow) */
 } PixelInterpolateMethod;
 
 typedef enum
@@ -220,12 +222,12 @@ extern MagickExport MagickBooleanType
     const size_t,const char *,const StorageType,void *,ExceptionInfo *),
   ImportImagePixels(Image *,const ssize_t,const ssize_t,const size_t,
     const size_t,const char *,const StorageType,const void *,ExceptionInfo *),
-  InterpolatePixelChannel(const Image *,const CacheView_ *,
+  InterpolatePixelChannel(const Image *magick_restrict,const CacheView_ *,
     const PixelChannel,const PixelInterpolateMethod,const double,const double,
     double *,ExceptionInfo *),
-  InterpolatePixelChannels(const Image *,const CacheView_ *,const Image *,
-    const PixelInterpolateMethod,const double,const double,Quantum *,
-    ExceptionInfo *),
+  InterpolatePixelChannels(const Image *magick_restrict,const CacheView_ *,
+    const Image * magick_restrict,const PixelInterpolateMethod,const double,
+    const double,Quantum *,ExceptionInfo *),
   InterpolatePixelInfo(const Image *,const CacheView_ *,
     const PixelInterpolateMethod,const double,const double,PixelInfo *,
     ExceptionInfo *),

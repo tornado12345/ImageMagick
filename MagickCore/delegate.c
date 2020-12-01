@@ -16,7 +16,7 @@
 %                               October 1998                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -113,7 +113,6 @@ static const char
     "  <delegate decode=\"jpg\" encode=\"lep\" mode=\"encode\" command=\"&quot;lepton&quot; &quot;%i&quot; &quot;%o&quot;\"/>"
     "  <delegate decode=\"jxr\" command=\"mv &quot;%i&quot; &quot;%i.jxr&quot;; &quot;JxrDecApp&quot; -i &quot;%i.jxr&quot; -o &quot;%o.pnm&quot;; mv &quot;%i.jxr&quot; &quot;%i&quot;; mv &quot;%o.pnm&quot; &quot;%o&quot;\"/>"
     "  <delegate decode=\"lep\" mode=\"decode\" command=\"&quot;lepton&quot; &quot;%i&quot; &quot;%o&quot;\"/>"
-    "  <delegate decode=\"mpeg:decode\" command=\"&quot;avconv&quot; -v -1 -i &quot;%i&quot; -vframes %S -vcodec pam -an -f rawvideo -y &quot;%u.pam&quot; 2&gt; &quot;%u&quot;\"/>"
     "  <delegate decode=\"odt\" command=\"&quot;soffice&quot; --convert-to pdf -outdir `dirname &quot;%i&quot;` &quot;%i&quot; 2&gt; &quot;%u&quot;; mv &quot;%i.pdf&quot; &quot;%o&quot;\"/>"
     "  <delegate decode=\"pcl:cmyk\" stealth=\"True\" command=\"&quot;pcl6&quot; -dQUIET -dSAFER -dBATCH -dNOPAUSE -dNOPROMPT -dMaxBitmap=500000000 -dAlignToPixels=0 -dGridFitTT=2 &quot;-sDEVICE=pamcmyk32&quot; -dTextAlphaBits=%u -dGraphicsAlphaBits=%u &quot;-r%s&quot; %s &quot;-sOutputFile=%s&quot; &quot;%s&quot;\"/>"
     "  <delegate decode=\"pcl:color\" stealth=\"True\" command=\"&quot;pcl6&quot; -dQUIET -dSAFER -dBATCH -dNOPAUSE -dNOPROMPT -dMaxBitmap=500000000 -dAlignToPixels=0 -dGridFitTT=2 &quot;-sDEVICE=ppmraw&quot; -dTextAlphaBits=%u -dGraphicsAlphaBits=%u &quot;-r%s&quot; %s &quot;-sOutputFile=%s&quot; &quot;%s&quot;\"/>"
@@ -133,7 +132,7 @@ static const char
     "  <delegate decode=\"ps\" encode=\"eps\" mode=\"bi\" command=\"&quot;gs&quot; -sstdout=%%stderr -dQUIET -dSAFER -dBATCH -dNOPAUSE -dNOPROMPT -dMaxBitmap=500000000 -dAlignToPixels=0 -dGridFitTT=2 &quot;-sDEVICE=eps2write&quot; &quot;-sOutputFile=%o&quot; &quot;-f%i&quot;\"/>"
     "  <delegate decode=\"ps\" encode=\"pdf\" mode=\"bi\" command=\"&quot;gs&quot; -sstdout=%%stderr -dQUIET -dSAFER -dBATCH -dNOPAUSE -dNOPROMPT -dMaxBitmap=500000000 -dAlignToPixels=0 -dGridFitTT=2 &quot;-sDEVICE=pdfwrite&quot; &quot;-sOutputFile=%o&quot; &quot;-f%i&quot;\"/>"
     "  <delegate decode=\"ps\" encode=\"print\" mode=\"encode\" command=\"lpr &quot;%i&quot;\"/>"
-    "  <delegate decode=\"ps:mono\" stealth=\"True\" command=\"&quot;fs&quot; -sstdout=%%stderr -dQUIET -dSAFER -dBATCH -dNOPAUSE -dNOPROMPT -dMaxBitmap=500000000 -dAlignToPixels=0 -dGridFitTT=2 &quot;-sDEVICE=pbmraw&quot; -dTextAlphaBits=%u -dGraphicsAlphaBits=%u &quot;-r%s&quot; %s &quot;-sOutputFile=%s&quot; &quot;-f%s&quot; &quot;-f%s&quot;\"/>"
+    "  <delegate decode=\"ps:mono\" stealth=\"True\" command=\"&quot;gs&quot; -sstdout=%%stderr -dQUIET -dSAFER -dBATCH -dNOPAUSE -dNOPROMPT -dMaxBitmap=500000000 -dAlignToPixels=0 -dGridFitTT=2 &quot;-sDEVICE=pbmraw&quot; -dTextAlphaBits=%u -dGraphicsAlphaBits=%u &quot;-r%s&quot; %s &quot;-sOutputFile=%s&quot; &quot;-f%s&quot; &quot;-f%s&quot;\"/>"
     "  <delegate decode=\"shtml\" command=\"&quot;html2ps&quot; -U -o &quot;%o&quot; &quot;%i&quot;\"/>"
     "  <delegate decode=\"sid\" command=\"&quot;mrsidgeodecode&quot; -if sid -i &quot;%i&quot; -of tif -o &quot;%o&quot; &gt; &quot;%u&quot;\"/>"
     "  <delegate decode=\"svg\" command=\"&quot;rsvg-convert&quot; -o &quot;%o&quot; &quot;%i&quot;\"/>"
@@ -146,7 +145,8 @@ static const char
     "  <delegate decode=\"xps:cmyk\" stealth=\"True\" command=\"&quot;gxps&quot; -dQUIET -dSAFER -dBATCH -dNOPAUSE -dNOPROMPT -dMaxBitmap=500000000 -dAlignToPixels=0 -dGridFitTT=2 &quot;-sDEVICE=bmpsep8&quot; -dTextAlphaBits=%u -dGraphicsAlphaBits=%u &quot;-r%s&quot; %s &quot;-sOutputFile=%s&quot; &quot;%s&quot;\"/>"
     "  <delegate decode=\"xps:color\" stealth=\"True\" command=\"&quot;gxps&quot; -dQUIET -dSAFER -dBATCH -dNOPAUSE -dNOPROMPT -dMaxBitmap=500000000 -dAlignToPixels=0 -dGridFitTT=2 &quot;-sDEVICE=ppmraw&quot; -dTextAlphaBits=%u -dGraphicsAlphaBits=%u &quot;-r%s&quot; %s &quot;-sOutputFile=%s&quot; &quot;%s&quot;\"/>"
     "  <delegate decode=\"xps:mono\" stealth=\"True\" command=\"&quot;gxps&quot; -dQUIET -dSAFER -dBATCH -dNOPAUSE -dNOPROMPT -dMaxBitmap=500000000 -dAlignToPixels=0 -dGridFitTT=2 &quot;-sDEVICE=pbmraw&quot; -dTextAlphaBits=%u -dGraphicsAlphaBits=%u &quot;-r%s&quot; %s &quot;-sOutputFile=%s&quot; &quot;%s&quot;\"/>"
-    "  <delegate encode=\"mpeg:encode\" stealth=\"True\" command=\"&quot;avconv&quot; -v -1 -i &quot;%M%%d.jpg&quot; &quot;%u.%m&quot; 2&gt; &quot;%u&quot;\"/>"
+    "  <delegate decode=\"mpeg:decode\" command=\"&quot;ffmpeg&quot; -v -1 -i &quot;%i&quot; -vframes %S -vcodec pam -an -f rawvideo -y &quot;%u.pam&quot; 2&gt; &quot;%u&quot;\"/>"
+    "  <delegate encode=\"mpeg:encode\" stealth=\"True\" command=\"&quot;ffmpeg&quot; -v -1 -i &quot;%M%%d.jpg&quot; -plays %I &quot;%u.%m&quot; 2&gt; &quot;%u&quot;\"/>"
     "</delegatemap>";
 
 /*
@@ -203,7 +203,7 @@ static LinkedListInfo *AcquireDelegateCache(const char *filename,
 
   cache=NewLinkedList(0);
   status=MagickTrue;
-#if !defined(MAGICKCORE_ZERO_CONFIGURATION_SUPPORT)
+#if !MAGICKCORE_ZERO_CONFIGURATION_SUPPORT
   {
     const StringInfo
       *option;
@@ -452,13 +452,13 @@ MagickExport int ExternalDelegateCommand(const MagickBooleanType asynchronous,
       TODO: This won't work if one of the delegate parameters has a forward
             slash as aparameter.
     */
-    p=strstr(sanitize_command, "cmd.exe /c");
+    p=strstr(sanitize_command,"cmd.exe /c");
     if (p != (char*) NULL)
       {
         p+=10;
-        for (; *p != '\0'; p++)
+        for ( ; *p != '\0'; p++)
           if (*p == '/')
-            *p=*DirectorySeparator;
+            *p=(*DirectorySeparator);
       }
   }
   status=NTSystemCommand(sanitize_command,message);
@@ -522,6 +522,36 @@ MagickExport int ExternalDelegateCommand(const MagickBooleanType asynchronous,
 %    o exception: return any errors or warnings in this structure.
 %
 */
+
+static char *SanitizeDelegateString(const char *source)
+{
+  char
+    *sanitize_source;
+
+  const char
+    *q;
+
+  register char
+    *p;
+
+  static char
+#if defined(MAGICKCORE_WINDOWS_SUPPORT)
+    allowlist[] =
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 "
+      "$-_.+!;*(),{}|^~[]`\'><#%/?:@&=";
+#else
+    allowlist[] =
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 "
+      "$-_.+!;*(),{}|\\^~[]`\"><#%/?:@&=";
+#endif
+
+  sanitize_source=AcquireString(source);
+  p=sanitize_source;
+  q=sanitize_source+strlen(sanitize_source);
+  for (p+=strspn(p,allowlist); p != q; p+=strspn(p,allowlist))
+    *p='_';
+  return(sanitize_source);
+}
 
 static char *GetMagickPropertyLetter(ImageInfo *image_info,Image *image,
   const char letter,ExceptionInfo *exception)
@@ -755,6 +785,13 @@ static char *GetMagickPropertyLetter(ImageInfo *image_info,Image *image,
         (double) image->page.height);
       break;
     }
+    case 'I': /* image iterations for animations */
+    {
+      WarnNoImageReturn("\"%%%c\"",letter);
+      (void) FormatLocaleString(value,MagickPathExtent,"%.20g",(double)
+        image->iterations);
+      break;
+    }
     case 'M': /* Magick filename - filename given incl. coder & read mods */
     {
       WarnNoImageReturn("\"%%%c\"",letter);
@@ -860,14 +897,13 @@ static char *GetMagickPropertyLetter(ImageInfo *image_info,Image *image,
       break;
     }
   }
-  return(SanitizeString(string));
+  return(SanitizeDelegateString(string));
 }
 
 static char *InterpretDelegateProperties(ImageInfo *image_info,
   Image *image,const char *embed_text,ExceptionInfo *exception)
 {
 #define ExtendInterpretText(string_length) \
-DisableMSCWarning(4127) \
 { \
   size_t length=(string_length); \
   if ((size_t) (q-interpret_text+length+1) >= extent) \
@@ -879,11 +915,9 @@ DisableMSCWarning(4127) \
         return((char *) NULL); \
       q=interpret_text+strlen(interpret_text); \
    } \
-} \
-RestoreMSCWarning
+}
 
 #define AppendKeyValue2Text(key,value)\
-DisableMSCWarning(4127) \
 { \
   size_t length=strlen(key)+strlen(value)+2; \
   if ((size_t) (q-interpret_text+length+1) >= extent) \
@@ -896,11 +930,9 @@ DisableMSCWarning(4127) \
       q=interpret_text+strlen(interpret_text); \
      } \
    q+=FormatLocaleString(q,extent,"%s=%s\n",(key),(value)); \
-} \
-RestoreMSCWarning
+}
 
 #define AppendString2Text(string) \
-DisableMSCWarning(4127) \
 { \
   size_t length=strlen((string)); \
   if ((size_t) (q-interpret_text+length+1) >= extent) \
@@ -914,8 +946,7 @@ DisableMSCWarning(4127) \
     } \
   (void) CopyMagickString(q,(string),extent); \
   q+=length; \
-} \
-RestoreMSCWarning
+}
 
   char
     *interpret_text,
@@ -2047,7 +2078,7 @@ static MagickBooleanType LoadDelegateCache(LinkedListInfo *cache,
     /*
       Interpret XML.
     */
-    GetNextToken(q,&q,extent,token);
+    (void) GetNextToken(q,&q,extent,token);
     if (*token == '\0')
       break;
     (void) CopyMagickString(keyword,token,MagickPathExtent);
@@ -2057,7 +2088,7 @@ static MagickBooleanType LoadDelegateCache(LinkedListInfo *cache,
           Doctype element.
         */
         while ((LocaleNCompare(q,"]>",2) != 0) && (*q != '\0'))
-          GetNextToken(q,&q,extent,token);
+          (void) GetNextToken(q,&q,extent,token);
         continue;
       }
     if (LocaleNCompare(keyword,"<!--",4) == 0)
@@ -2066,7 +2097,7 @@ static MagickBooleanType LoadDelegateCache(LinkedListInfo *cache,
           Comment element.
         */
         while ((LocaleNCompare(q,"->",2) != 0) && (*q != '\0'))
-          GetNextToken(q,&q,extent,token);
+          (void) GetNextToken(q,&q,extent,token);
         continue;
       }
     if (LocaleCompare(keyword,"<include") == 0)
@@ -2077,10 +2108,10 @@ static MagickBooleanType LoadDelegateCache(LinkedListInfo *cache,
         while (((*token != '/') && (*(token+1) != '>')) && (*q != '\0'))
         {
           (void) CopyMagickString(keyword,token,MagickPathExtent);
-          GetNextToken(q,&q,extent,token);
+          (void) GetNextToken(q,&q,extent,token);
           if (*token != '=')
             continue;
-          GetNextToken(q,&q,extent,token);
+          (void) GetNextToken(q,&q,extent,token);
           if (LocaleCompare(keyword,"file") == 0)
             {
               if (depth > MagickMaxRecursionDepth)
@@ -2138,11 +2169,11 @@ static MagickBooleanType LoadDelegateCache(LinkedListInfo *cache,
         delegate_info=(DelegateInfo *) NULL;
         continue;
       }
-    GetNextToken(q,(const char **) NULL,extent,token);
+    (void) GetNextToken(q,(const char **) NULL,extent,token);
     if (*token != '=')
       continue;
-    GetNextToken(q,&q,extent,token);
-    GetNextToken(q,&q,extent,token);
+    (void) GetNextToken(q,&q,extent,token);
+    (void) GetNextToken(q,&q,extent,token);
     switch (*keyword)
     {
       case 'C':

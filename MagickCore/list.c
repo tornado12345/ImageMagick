@@ -17,7 +17,7 @@
 %                               December 2002                                 %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -41,6 +41,7 @@
   Include declarations.
 */
 #include "MagickCore/studio.h"
+#include "MagickCore/artifact.h"
 #include "MagickCore/blob.h"
 #include "MagickCore/blob-private.h"
 #include "MagickCore/exception.h"
@@ -49,6 +50,7 @@
 #include "MagickCore/list.h"
 #include "MagickCore/memory_.h"
 #include "MagickCore/string_.h"
+#include "MagickCore/string-private.h"
 
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -207,6 +209,9 @@ MagickExport Image *CloneImages(const Image *images,const char *scenes,
   char
     *p;
 
+  const char
+    *artifact;
+
   const Image
     *next;
 
@@ -234,6 +239,7 @@ MagickExport Image *CloneImages(const Image *images,const char *scenes,
   assert(exception->signature == MagickCoreSignature);
   clone_images=NewImageList();
   images=GetFirstImageInList(images);
+  artifact=GetImageArtifact(images,"frames:step");
   length=GetImageListLength(images);
   for (p=(char *) scenes; *p != '\0';)
   {
@@ -261,8 +267,15 @@ MagickExport Image *CloneImages(const Image *images,const char *scenes,
             last=(ssize_t) length;
       }
     match=MagickFalse;
-    step=(ssize_t) (first > last ? -1 : 1);
-    for ( ; first != (last+step); first+=step)
+    step=1;
+    if (artifact != (const char *) NULL)
+      {
+        step=(ssize_t) StringToDouble(artifact,(char **) NULL);
+        if (step == 0)
+          step=1;
+      }
+    step=(ssize_t) (first > last ? -step : step);
+    for ( ; (first > -(last+step)) && (first < (last+step)); first+=step)
     {
       i=0;
       for (next=images; next != (Image *) NULL; next=GetNextImageInList(next))
@@ -1173,20 +1186,23 @@ MagickExport void ReplaceImageInList(Image **images,Image *replace)
   if ((*images) == (Image *) NULL)
     return;
   assert((*images)->signature == MagickCoreSignature);
-
-  /* link next pointer */
+  /*
+    Link next pointer.
+  */
   replace=GetLastImageInList(replace);
   replace->next=(*images)->next;
   if (replace->next != (Image *) NULL)
     replace->next->previous=replace;
-
-  /* link previous pointer - set images position to first replacement image */
+  /*
+    Link previous pointer - set images position to first replacement image.
+  */
   replace=GetFirstImageInList(replace);
   replace->previous=(*images)->previous;
   if (replace->previous != (Image *) NULL)
     replace->previous->next=replace;
-
-  /* destroy the replaced image that was in images */
+  /*
+    Destroy the replaced image that was in images.
+  */
   (void) DestroyImage(*images);
   (*images)=replace;
 }
@@ -1231,20 +1247,23 @@ MagickExport void ReplaceImageInListReturnLast(Image **images,Image *replace)
   if ((*images) == (Image *) NULL)
     return;
   assert((*images)->signature == MagickCoreSignature);
-
-  /* link previous pointer */
+  /*
+    Link previous pointer.
+  */
   replace=GetFirstImageInList(replace);
   replace->previous=(*images)->previous;
   if (replace->previous != (Image *) NULL)
     replace->previous->next=replace;
-
-  /* link next pointer - set images position to last replacement image */
+  /*
+    Link next pointer - set images position to last replacement image.
+  */
   replace=GetLastImageInList(replace);
   replace->next=(*images)->next;
   if (replace->next != (Image *) NULL)
     replace->next->previous=replace;
-
-  /* destroy the replaced image that was in images */
+  /*
+    Destroy the replaced image that was in images.
+  */
   (void) DestroyImage(*images);
   (*images)=replace;
 }

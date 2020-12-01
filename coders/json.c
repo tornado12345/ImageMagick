@@ -17,7 +17,7 @@
 %                                January 2014                                 %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -129,6 +129,7 @@ ModuleExport size_t RegisterJSONImage(void)
   entry=AcquireMagickInfo("JSON","JSON","The image format and characteristics");
   entry->encoder=(EncodeImageHandler *) WriteJSONImage;
   entry->mime_type=ConstantString("application/json");
+  entry->flags|=CoderEndianSupportFlag;
   entry->flags^=CoderBlobSupportFlag;
   (void) RegisterMagickInfo(entry);
   return(MagickImageCoderSignature);
@@ -711,7 +712,7 @@ static ssize_t PrintChannelStatistics(FILE *file,const PixelChannel channel,
   const ChannelStatistics *channel_statistics)
 {
 #define StatisticsFormat "      \"%s\": {\n        \"min\": %.*g,\n"  \
-  "        \"max\": %.*g,\n        \"mean\": %.*g,\n        "  \
+  "        \"max\": %.*g,\n        \"mean\": %.*g,\n        \"median\": %.*g,\n        "  \
   "\"standardDeviation\": %.*g,\n        \"kurtosis\": %.*g,\n        "\
   "\"skewness\": %.*g,\n        \"entropy\": %.*g\n      }"
 
@@ -721,8 +722,9 @@ static ssize_t PrintChannelStatistics(FILE *file,const PixelChannel channel,
   n=FormatLocaleFile(file,StatisticsFormat,name,GetMagickPrecision(),
     (double) ClampToQuantum(scale*channel_statistics[channel].minima),
     GetMagickPrecision(),(double) ClampToQuantum(scale*
-    channel_statistics[channel].maxima),GetMagickPrecision(),scale*
-    channel_statistics[channel].mean,GetMagickPrecision(),scale*
+    channel_statistics[channel].maxima),GetMagickPrecision(),
+    scale*channel_statistics[channel].mean,GetMagickPrecision(),
+    scale*channel_statistics[channel].median,GetMagickPrecision(),scale*
     IsNaN(channel_statistics[channel].standard_deviation) != 0 ? MagickEpsilon :
     channel_statistics[channel].standard_deviation,GetMagickPrecision(),
     channel_statistics[channel].kurtosis,GetMagickPrecision(),
@@ -930,9 +932,6 @@ static MagickBooleanType EncodeImageAttributes(Image *image,FILE *file,
   ChannelStatistics
     *channel_statistics;
 
-  char
-    *url;
-
   const char
     *artifact,
     *locate,
@@ -946,7 +945,8 @@ static MagickBooleanType EncodeImageAttributes(Image *image,FILE *file,
 
   double
     elapsed_time,
-    user_time;
+    user_time,
+    version;
 
   ImageType
     type;
@@ -981,17 +981,29 @@ static MagickBooleanType EncodeImageAttributes(Image *image,FILE *file,
   ping=p == (const Quantum *) NULL ? MagickTrue : MagickFalse;
   (void) ping;
   (void) SignatureImage(image,exception);
-  JSONFormatLocaleFile(file,"{\n  \"image\": {\n    \"name\": %s,\n",
-    image->filename);
-  if (*image->magick_filename != '\0')
-    if (LocaleCompare(image->magick_filename,image->filename) != 0)
-      {
-        char
-          filename[MagickPathExtent];
-
-        GetPathComponent(image->magick_filename,TailPath,filename);
-        JSONFormatLocaleFile(file,"    \"baseName\": %s,\n",filename);
-      }
+  (void) FormatLocaleFile(file,"{\n");
+  version=1.0;
+  artifact=GetImageArtifact(image,"json:version");
+  if (artifact != (const char *) NULL)
+    version=StringToDouble(artifact,(char **) NULL);
+  if (version >= 1.0)
+    (void) FormatLocaleFile(file,"  \"version\": \"%.1f\",\n",version);
+  if (*image->magick_filename == '\0')
+    JSONFormatLocaleFile(file,"  \"image\": {\n    \"name\": %s,\n",
+      image->filename);
+  else
+    {
+      JSONFormatLocaleFile(file,"  \"image\": {\n    \"name\": %s,\n",
+        image->magick_filename);
+      if (LocaleCompare(image->magick_filename,image->filename) != 0)
+        {   
+          char
+            filename[MaxTextExtent];
+          
+          GetPathComponent(image->magick_filename,TailPath,filename);
+          JSONFormatLocaleFile(file,"    \"baseName\": %s,\n",filename);
+        }
+    }
   JSONFormatLocaleFile(file,"    \"format\": %s,\n",image->magick);
   magick_info=GetMagickInfo(image->magick,exception);
   if ((magick_info != (const MagickInfo *) NULL) &&
@@ -1033,8 +1045,12 @@ static MagickBooleanType EncodeImageAttributes(Image *image,FILE *file,
   if (image->type != type)
     JSONFormatLocaleFile(file,"    \"baseType\": %s,\n",
       CommandOptionToMnemonic(MagickTypeOptions,(ssize_t) image->type));
-  JSONFormatLocaleFile(file,"    \"endianess\": %s,\n",
-    CommandOptionToMnemonic(MagickEndianOptions,(ssize_t) image->endian));
+  if (version < 1.0)
+    JSONFormatLocaleFile(file,"    \"endianess\": %s,\n",
+      CommandOptionToMnemonic(MagickEndianOptions,(ssize_t) image->endian));
+  else
+    JSONFormatLocaleFile(file,"    \"endianness\": %s,\n",
+      CommandOptionToMnemonic(MagickEndianOptions,(ssize_t) image->endian));
   locate=GetImageArtifact(image,"identify:locate");
   if (locate == (const char *) NULL)
     locate=GetImageArtifact(image,"json:locate");
@@ -1539,10 +1555,6 @@ static MagickBooleanType EncodeImageAttributes(Image *image,FILE *file,
       (void) FormatLocaleFile(file,"],\n");
       image_info=DestroyImageInfo(image_info);
     }
-  (void) GetImageProperty(image,"exif:*",exception);
-  (void) GetImageProperty(image,"icc:*",exception);
-  (void) GetImageProperty(image,"iptc:*",exception);
-  (void) GetImageProperty(image,"xmp:*",exception);
   ResetImagePropertyIterator(image);
   property=GetNextImageProperty(image);
   if (property != (const char *) NULL)
@@ -1656,7 +1668,7 @@ static MagickBooleanType EncodeImageAttributes(Image *image,FILE *file,
     }
   (void) FormatLocaleFile(file,"    \"tainted\": %s,\n",
     image->taint != MagickFalse ? "true" : "false");
-  (void) FormatMagickSize(GetBlobSize(image),MagickFalse,"B",MagickPathExtent,
+  (void) FormatMagickSize(image->extent,MagickFalse,"B",MagickPathExtent,
     format);
   JSONFormatLocaleFile(file,"    \"filesize\": %s,\n",format);
   (void) FormatMagickSize((MagickSizeType) image->columns*image->rows,
@@ -1672,10 +1684,9 @@ static MagickBooleanType EncodeImageAttributes(Image *image,FILE *file,
     (unsigned long) (elapsed_time/60.0),(unsigned long) ceil(fmod(
     elapsed_time,60.0)),(unsigned long) (1000.0*(elapsed_time-floor(
     elapsed_time))));
-  url=GetMagickHomeURL();
-  JSONFormatLocaleFile(file,"    \"version\": %s\n",url);
-  url=DestroyString(url);
-  (void) FormatLocaleFile(file,"  }\n}\n");
+  JSONFormatLocaleFile(file,"    \"version\": %s\n",GetMagickVersion(
+    (size_t *) NULL));
+  (void) FormatLocaleFile(file,"  }\n}");
   (void) fflush(file);
   return(ferror(file) != 0 ? MagickFalse : MagickTrue);
 }

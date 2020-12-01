@@ -17,7 +17,7 @@
 %                                 October 1996                                %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -41,7 +41,7 @@
   Include declarations.
 */
 #include "MagickCore/studio.h"
-#include "MagickCore/property.h"
+#include "MagickCore/artifact.h"
 #include "MagickCore/blob.h"
 #include "MagickCore/cache-view.h"
 #include "MagickCore/color.h"
@@ -59,18 +59,19 @@
 #include "MagickCore/effect.h"
 #include "MagickCore/fx.h"
 #include "MagickCore/gem.h"
+#include "MagickCore/gem-private.h"
 #include "MagickCore/geometry.h"
 #include "MagickCore/image-private.h"
 #include "MagickCore/list.h"
 #include "MagickCore/log.h"
 #include "MagickCore/memory_.h"
-#include "MagickCore/memory-private.h"
 #include "MagickCore/monitor.h"
 #include "MagickCore/monitor-private.h"
 #include "MagickCore/montage.h"
 #include "MagickCore/option.h"
 #include "MagickCore/pixel-accessor.h"
 #include "MagickCore/pixel-private.h"
+#include "MagickCore/property.h"
 #include "MagickCore/quantize.h"
 #include "MagickCore/quantum.h"
 #include "MagickCore/quantum-private.h"
@@ -116,8 +117,11 @@ struct _ThresholdMap
 /*
   Static declarations.
 */
-static const char
-  *MinimalThresholdMap =
+#if MAGICKCORE_ZERO_CONFIGURATION_SUPPORT
+  #include "MagickCore/threshold-map.h"
+#else
+static const char *const
+  BuiltinMap=
     "<?xml version=\"1.0\"?>"
     "<thresholds>"
     "  <threshold map=\"threshold\" alias=\"1x1\">"
@@ -134,6 +138,7 @@ static const char
     "    </levels>"
     "  </threshold>"
     "</thresholds>";
+#endif
 
 /*
   Forward declarations.
@@ -212,6 +217,8 @@ MagickExport Image *AdaptiveThresholdImage(const Image *image,
   threshold_image=CloneImage(image,0,0,MagickTrue,exception);
   if (threshold_image == (Image *) NULL)
     return((Image *) NULL);
+  if ((width == 0) || (height == 0))
+    return(threshold_image);
   status=SetImageStorageClass(threshold_image,DirectClass,exception);
   if (status == MagickFalse)
     {
@@ -366,9 +373,8 @@ MagickExport Image *AdaptiveThresholdImage(const Image *image,
 %                                                                             %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-%  AutoThresholdImage() automatically selects a threshold and replaces each
-%  pixel in the image with a black pixel if the image intentsity is less than
-%  the selected threshold otherwise white.
+%  AutoThresholdImage()  automatically performs image thresholding
+%  dependent on which method you specify.
 %
 %  The format of the AutoThresholdImage method is:
 %
@@ -563,8 +569,7 @@ static double OTSUThreshold(const Image *image,const double *histogram,
   return(100.0*threshold/MaxIntensity);
 }
 
-static double TriangleThreshold(const double *histogram,
-  ExceptionInfo *exception)
+static double TriangleThreshold(const double *histogram)
 {
   double
     a,
@@ -592,7 +597,6 @@ static double TriangleThreshold(const double *histogram,
   /*
     Compute optimal threshold with triangle algorithm.
   */
-  (void) exception;
   start=0;  /* find start bin, first bin not zero count */
   for (i=0; i <= (ssize_t) MaxIntensity; i++)
     if (histogram[i] > 0.0)
@@ -740,7 +744,7 @@ MagickExport MagickBooleanType AutoThresholdImage(Image *image,
     }
     case TriangleThresholdMethod:
     {
-      threshold=TriangleThreshold(histogram,exception);
+      threshold=TriangleThreshold(histogram);
       break;
     }
   }
@@ -754,6 +758,8 @@ MagickExport MagickBooleanType AutoThresholdImage(Image *image,
   */
   (void) FormatLocaleString(property,MagickPathExtent,"%g%%",threshold);
   (void) SetImageProperty(image,"auto-threshold:threshold",property,exception);
+  if (IsStringTrue(GetImageArtifact(image,"auto-threshold:verbose")) != MagickFalse)
+    (void) FormatLocaleFile(stdout,"%.*g%%\n",GetMagickPrecision(),threshold);
   return(BilevelImage(image,QuantumRange*threshold/100.0,exception));
 }
 
@@ -821,7 +827,7 @@ MagickExport MagickBooleanType BilevelImage(Image *image,const double threshold,
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
   if (SetImageStorageClass(image,DirectClass,exception) == MagickFalse)
     return(MagickFalse);
-  if (IsGrayColorspace(image->colorspace) != MagickFalse)
+  if (IsGrayColorspace(image->colorspace) == MagickFalse)
     (void) SetImageColorspace(image,sRGBColorspace,exception);
   /*
     Bilevel threshold image.
@@ -1185,6 +1191,202 @@ MagickExport MagickBooleanType ClampImage(Image *image,ExceptionInfo *exception)
 %                                                                             %
 %                                                                             %
 %                                                                             %
+%     C o l o r T h r e s h o l d I m a g e                                   %
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%  ColorThresholdImage() forces all pixels in the color range to white
+%  otherwise black.
+%
+%  The format of the ColorThresholdImage method is:
+%
+%      MagickBooleanType ColorThresholdImage(Image *image,
+%        const PixelInfo *start_color,const PixelInfo *stop_color,
+%        ExceptionInfo *exception)
+%
+%  A description of each parameter follows:
+%
+%    o image: the image.
+%
+%    o start_color, stop_color: define the start and stop color range.  Any
+%      pixel within the range returns white otherwise black.
+%
+%    o exception: return any errors or warnings in this structure.
+%
+*/
+MagickExport MagickBooleanType ColorThresholdImage(Image *image,
+  const PixelInfo *start_color,const PixelInfo *stop_color,
+  ExceptionInfo *exception)
+{
+#define ThresholdImageTag  "Threshold/Image"
+
+  CacheView
+    *image_view;
+
+  MagickBooleanType
+    status;
+
+  MagickOffsetType
+    progress;
+
+  PixelInfo
+    start,
+    stop;
+
+  ssize_t
+    y;
+
+  /*
+    Color threshold image.
+  */
+  assert(image != (Image *) NULL);
+  assert(image->signature == MagickCoreSignature);
+  if (image->debug != MagickFalse)
+    (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
+  status=AcquireImageColormap(image,2,exception);
+  if (status == MagickFalse)
+    return(status);
+  start=(*start_color);
+  stop=(*stop_color);
+  switch (image->colorspace)
+  {
+    case HCLColorspace:
+    {
+      ConvertRGBToHCL(start_color->red,start_color->green,start_color->blue,
+        &start.red,&start.green,&start.blue);
+      ConvertRGBToHCL(stop_color->red,stop_color->green,stop_color->blue,
+        &stop.red,&stop.green,&stop.blue);
+      break;
+    }
+    case HSBColorspace:
+    {
+      ConvertRGBToHSB(start_color->red,start_color->green,start_color->blue,
+        &start.red,&start.green,&start.blue);
+      ConvertRGBToHSB(stop_color->red,stop_color->green,stop_color->blue,
+        &stop.red,&stop.green,&stop.blue);
+      break;
+    }
+    case HSLColorspace:
+    {
+      ConvertRGBToHSL(start_color->red,start_color->green,start_color->blue,
+        &start.red,&start.green,&start.blue);
+      ConvertRGBToHSL(stop_color->red,stop_color->green,stop_color->blue,
+        &stop.red,&stop.green,&stop.blue);
+      break;
+    }
+    case HSVColorspace:
+    {
+      ConvertRGBToHSV(start_color->red,start_color->green,start_color->blue,
+        &start.red,&start.green,&start.blue);
+      ConvertRGBToHSV(stop_color->red,stop_color->green,stop_color->blue,
+        &stop.red,&stop.green,&stop.blue);
+      break;
+    }
+    case HWBColorspace:
+    {
+      ConvertRGBToHWB(start_color->red,start_color->green,start_color->blue,
+        &start.red,&start.green,&start.blue);
+      ConvertRGBToHWB(stop_color->red,stop_color->green,stop_color->blue,
+        &stop.red,&stop.green,&stop.blue);
+      break;
+    }
+    case LabColorspace:
+    {
+      ConvertRGBToLab(start_color->red,start_color->green,start_color->blue,
+        &start.red,&start.green,&start.blue);
+      ConvertRGBToLab(stop_color->red,stop_color->green,stop_color->blue,
+        &stop.red,&stop.green,&stop.blue);
+      break;
+    }
+    default:
+    {
+      start.red*=QuantumScale;
+      start.green*=QuantumScale;
+      start.blue*=QuantumScale;
+      stop.red*=QuantumScale;
+      stop.green*=QuantumScale;
+      stop.blue*=QuantumScale;
+      break;
+    }
+  }
+  start.red*=QuantumRange;
+  start.green*=QuantumRange;
+  start.blue*=QuantumRange;
+  stop.red*=QuantumRange;
+  stop.green*=QuantumRange;
+  stop.blue*=QuantumRange;
+  progress=0;
+  image_view=AcquireAuthenticCacheView(image,exception);
+#if defined(MAGICKCORE_OPENMP_SUPPORT)
+  #pragma omp parallel for schedule(static) shared(progress,status) \
+    magick_number_threads(image,image,image->rows,1)
+#endif
+  for (y=0; y < (ssize_t) image->rows; y++)
+  {
+    register ssize_t
+      x;
+
+    register Quantum
+      *magick_restrict q;
+
+    if (status == MagickFalse)
+      continue;
+    q=GetCacheViewAuthenticPixels(image_view,0,y,image->columns,1,exception);
+    if (q == (Quantum *) NULL)
+      {
+        status=MagickFalse;
+        continue;
+      }
+    for (x=0; x < (ssize_t) image->columns; x++)
+    {
+      MagickBooleanType
+        foreground = MagickTrue;
+
+      register ssize_t
+        i;
+
+      for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
+      {
+        PixelChannel channel = GetPixelChannelChannel(image,i);
+        PixelTrait traits = GetPixelChannelTraits(image,channel);
+        if ((traits & UpdatePixelTrait) == 0)
+          continue;
+        if ((q[i] < GetPixelInfoChannel(&start,channel)) ||
+            (q[i] > GetPixelInfoChannel(&stop,channel)))
+          foreground=MagickFalse;
+      }
+      SetPixelIndex(image,(Quantum) (foreground != MagickFalse ? 1 : 0),q);
+      q+=GetPixelChannels(image);
+    }
+    if (SyncCacheViewAuthenticPixels(image_view,exception) == MagickFalse)
+      status=MagickFalse;
+    if (image->progress_monitor != (MagickProgressMonitor) NULL)
+      {
+        MagickBooleanType
+          proceed;
+
+#if defined(MAGICKCORE_OPENMP_SUPPORT)
+        #pragma omp atomic
+#endif
+        progress++;
+        proceed=SetImageProgress(image,ThresholdImageTag,progress,
+          image->rows);
+        if (proceed == MagickFalse)
+          status=MagickFalse;
+      }
+  }
+  image_view=DestroyCacheView(image_view);
+  image->colorspace=sRGBColorspace;
+  return(SyncImage(image,exception));
+}
+
+/*
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                                                                             %
+%                                                                             %
+%                                                                             %
 %  D e s t r o y T h r e s h o l d M a p                                      %
 %                                                                             %
 %                                                                             %
@@ -1247,10 +1449,10 @@ MagickExport ThresholdMap *GetThresholdMap(const char *map_id,
   ThresholdMap
     *map;
 
-  map=GetThresholdMapFile(MinimalThresholdMap,"built-in",map_id,exception);
+  map=GetThresholdMapFile(BuiltinMap,"built-in",map_id,exception);
   if (map != (ThresholdMap *) NULL)
     return(map);
-#if !defined(MAGICKCORE_ZERO_CONFIGURATION_SUPPORT)
+#if !MAGICKCORE_ZERO_CONFIGURATION_SUPPORT
   {
     const StringInfo
       *option;
@@ -1651,7 +1853,7 @@ MagickExport MagickBooleanType ListThresholdMaps(FILE *file,
 %
 %    o threshold_map: A string containing the name of the threshold dither
 %      map to use, followed by zero or more numbers representing the number
-%      of color levels tho dither between.
+%      of color levels to dither between.
 %
 %      Any level number less than 2 will be equivalent to 2, and means only
 %      binary dithering will be applied to each color channel.
@@ -1662,7 +1864,7 @@ MagickExport MagickBooleanType ListThresholdMaps(FILE *file,
 %      the color channels.
 %
 %      For example: "o3x3,6" will generate a 6 level posterization of the
-%      image with a ordered 3x3 diffused pixel dither being applied between
+%      image with an ordered 3x3 diffused pixel dither being applied between
 %      each level. While checker,8,8,4 will produce a 332 colormaped image
 %      with only a single checkerboard hash pattern (50% grey) between each
 %      color level, to basically double the number of color levels with
@@ -1737,14 +1939,14 @@ MagickExport MagickBooleanType OrderedDitherImage(Image *image,
   p=strchr((char *) threshold_map,',');
   if ((p != (char *) NULL) && (isdigit((int) ((unsigned char) *(++p))) != 0))
     {
-      GetNextToken(p,&p,MagickPathExtent,token);
+      (void) GetNextToken(p,&p,MagickPathExtent,token);
       for (i=0; (i < MaxPixelChannels); i++)
         levels[i]=StringToDouble(token,(char **) NULL);
       for (i=0; (*p != '\0') && (i < MaxPixelChannels); i++)
       {
-        GetNextToken(p,&p,MagickPathExtent,token);
+        (void) GetNextToken(p,&p,MagickPathExtent,token);
         if (*token == ',')
-          GetNextToken(p,&p,MagickPathExtent,token);
+          (void) GetNextToken(p,&p,MagickPathExtent,token);
         levels[i]=StringToDouble(token,(char **) NULL);
       }
     }
@@ -2148,13 +2350,13 @@ MagickExport MagickBooleanType RandomThresholdImage(Image *image,
 %
 %    o image: the image.
 %
-%    o low_black: Define the minimum threshold value.
+%    o low_black: Define the minimum black threshold value.
 %
-%    o low_white: Define the maximum threshold value.
+%    o low_white: Define the minimum white threshold value.
 %
-%    o high_white: Define the minimum threshold value.
+%    o high_white: Define the maximum white threshold value.
 %
-%    o low_white: Define the maximum threshold value.
+%    o high_black: Define the maximum black threshold value.
 %
 %    o exception: return any errors or warnings in this structure.
 %
@@ -2229,7 +2431,7 @@ MagickExport MagickBooleanType RangeThresholdImage(Image *image,
         if (image->channel_mask != DefaultChannels)
           pixel=(double) q[i];
         if (pixel < low_black)
-          q[i]=0;
+          q[i]=(Quantum) 0;
         else
           if ((pixel >= low_black) && (pixel < low_white))
             q[i]=ClampToQuantum(QuantumRange*
@@ -2243,9 +2445,9 @@ MagickExport MagickBooleanType RangeThresholdImage(Image *image,
                   high_black-high_white)*(high_black-pixel));
               else
                 if (pixel > high_black)
-                  q[i]=0;
+                  q[i]=(Quantum) 0;
                 else
-                  q[i]=0;
+                  q[i]=(Quantum) 0;
       }
       q+=GetPixelChannels(image);
     }

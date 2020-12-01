@@ -17,7 +17,7 @@
 %                               October 1998                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -143,6 +143,9 @@ MagickExport Image *ConstituteImage(const size_t columns,const size_t rows,
   register ssize_t
     i;
 
+  size_t
+    length;
+
   /*
     Allocate image structure.
   */
@@ -154,7 +157,18 @@ MagickExport Image *ConstituteImage(const size_t columns,const size_t rows,
   image=AcquireImage((ImageInfo *) NULL,exception);
   if (image == (Image *) NULL)
     return((Image *) NULL);
-  for (i=0; i < (ssize_t) strlen(map); i++)
+  switch (storage)
+  {
+    case CharPixel: image->depth=8*sizeof(unsigned char); break;
+    case DoublePixel: image->depth=8*sizeof(double); break;
+    case FloatPixel: image->depth=8*sizeof(float); break;
+    case LongPixel: image->depth=8*sizeof(unsigned long); break;
+    case LongLongPixel: image->depth=8*sizeof(MagickSizeType); break;
+    case ShortPixel: image->depth=8*sizeof(unsigned short); break;
+    default: break;
+  }
+  length=strlen(map);
+  for (i=0; i < (ssize_t) length; i++)
   {
     switch (map[i])
     {
@@ -186,7 +200,7 @@ MagickExport Image *ConstituteImage(const size_t columns,const size_t rows,
       }
       default:
       {
-        if (strlen(map) == 1)
+        if (length == 1)
           image->colorspace=GRAYColorspace;
         break;
       }
@@ -471,6 +485,8 @@ MagickExport Image *ReadImage(const ImageInfo *image_info,
   */
   sans_exception=AcquireExceptionInfo();
   magick_info=GetMagickInfo(read_info->magick,sans_exception);
+  if (sans_exception->severity == PolicyError)
+    magick_info=GetMagickInfo(read_info->magick,exception);
   sans_exception=DestroyExceptionInfo(sans_exception);
   if (magick_info != (const MagickInfo *) NULL)
     {
@@ -656,6 +672,12 @@ MagickExport Image *ReadImage(const ImageInfo *image_info,
     ssize_t
       option_type;
 
+    static const char
+      *source_date_epoch = (const char *) NULL;
+
+    static MagickBooleanType
+      epoch_initalized = MagickFalse;
+
     next->taint=MagickFalse;
     GetPathComponent(magick_filename,MagickPath,magick_path);
     if (*magick_path == '\0' && *next->magick == '\0')
@@ -668,6 +690,10 @@ MagickExport Image *ReadImage(const ImageInfo *image_info,
       next->magick_columns=next->columns;
     if (next->magick_rows == 0)
       next->magick_rows=next->rows;
+    (void) GetImageProperty(next,"exif:*",exception);
+    (void) GetImageProperty(next,"icc:*",exception);
+    (void) GetImageProperty(next,"iptc:*",exception);
+    (void) GetImageProperty(next,"xmp:*",exception);
     value=GetImageProperty(next,"exif:Orientation",exception);
     if (value == (char *) NULL)
       value=GetImageProperty(next,"tiff:Orientation",exception);
@@ -781,12 +807,20 @@ MagickExport Image *ReadImage(const ImageInfo *image_info,
     profile=GetImageProfile(next,"iptc");
     if (profile == (const StringInfo *) NULL)
       profile=GetImageProfile(next,"8bim");
-    (void) FormatMagickTime((time_t) GetBlobProperties(next)->st_mtime,
-      MagickPathExtent,timestamp);
-    (void) SetImageProperty(next,"date:modify",timestamp,exception);
-    (void) FormatMagickTime((time_t) GetBlobProperties(next)->st_ctime,
-      MagickPathExtent,timestamp);
-    (void) SetImageProperty(next,"date:create",timestamp,exception);
+    if (epoch_initalized == MagickFalse)
+      {
+        source_date_epoch=getenv("SOURCE_DATE_EPOCH");
+        epoch_initalized=MagickTrue;
+      }
+    if (source_date_epoch == (const char *) NULL)
+      {
+        (void) FormatMagickTime((time_t) GetBlobProperties(next)->st_mtime,
+          MagickPathExtent,timestamp);
+        (void) SetImageProperty(next,"date:modify",timestamp,exception);
+        (void) FormatMagickTime((time_t) GetBlobProperties(next)->st_ctime,
+          MagickPathExtent,timestamp);
+        (void) SetImageProperty(next,"date:create",timestamp,exception);
+      }
     option=GetImageOption(image_info,"delay");
     if (option != (const char *) NULL)
       {
@@ -820,6 +854,8 @@ MagickExport Image *ReadImage(const ImageInfo *image_info,
     image=next;
   }
   read_info=DestroyImageInfo(read_info);
+  if (GetBlobError(image) != MagickFalse)
+    ThrowReaderException(CorruptImageError,"UnableToReadImageData");
   return(GetFirstImageInList(image));
 }
 
@@ -1077,6 +1113,8 @@ MagickExport MagickBooleanType WriteImage(const ImageInfo *image_info,
     Call appropriate image writer based on image type.
   */
   magick_info=GetMagickInfo(write_info->magick,sans_exception);
+  if (sans_exception->severity == PolicyError)
+    magick_info=GetMagickInfo(write_info->magick,exception);
   sans_exception=DestroyExceptionInfo(sans_exception);
   if (magick_info != (const MagickInfo *) NULL)
     {
@@ -1181,6 +1219,8 @@ MagickExport MagickBooleanType WriteImage(const ImageInfo *image_info,
         {
           sans_exception=AcquireExceptionInfo();
           magick_info=GetMagickInfo(write_info->magick,sans_exception);
+          if (sans_exception->severity == PolicyError)
+            magick_info=GetMagickInfo(write_info->magick,exception);
           sans_exception=DestroyExceptionInfo(sans_exception);
           if ((write_info->affirm == MagickFalse) &&
               (magick_info == (const MagickInfo *) NULL))
@@ -1249,6 +1289,8 @@ MagickExport MagickBooleanType WriteImage(const ImageInfo *image_info,
       (write_info->verbose != MagickFalse))
     (void) IdentifyImage(image,stdout,MagickFalse,exception);
   write_info=DestroyImageInfo(write_info);
+  if (GetBlobError(image) != MagickFalse)
+    ThrowWriterException(FileOpenError,"UnableToWriteFile");
   return(status);
 }
 

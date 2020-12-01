@@ -12,9 +12,6 @@
 /* Define as __inline if that's what the C compiler calls it.  */
 #define MAGICKCORE_inline __inline
 
-/* Define as the return type of signal handlers (int or void).  */
-#define MAGICKCORE_RETSIGTYPE void
-
 /* Define if the `S_IS*' macros in <sys/stat.h> do not work properly.  */
 #undef MAGICKCORE_STAT_MACROS_BROKEN
 
@@ -235,6 +232,9 @@
 
 /* Define if you have WMF library */
 #undef MAGICKCORE_WMF_DELEGATE
+
+/* Define if you have LIBZIP library */
+#undef MAGICKCORE_LIBZIP_DELEGATE
 
 /* Define if you have sys_errlist in libc */
 #undef MAGICKCORE_HAVE_SYS_ERRLIST

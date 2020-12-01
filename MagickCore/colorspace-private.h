@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.  You may
@@ -75,9 +75,9 @@ static inline void ConvertRGBToCMYK(PixelInfo *pixel)
     black=magenta;
   if (yellow < black)
     black=yellow;
-  cyan=(MagickRealType) ((cyan-black)/(1.0-black));
-  magenta=(MagickRealType) ((magenta-black)/(1.0-black));
-  yellow=(MagickRealType) ((yellow-black)/(1.0-black));
+  cyan=(MagickRealType) (PerceptibleReciprocal(1.0-black)*(cyan-black));
+  magenta=(MagickRealType) (PerceptibleReciprocal(1.0-black)*(magenta-black));
+  yellow=(MagickRealType) (PerceptibleReciprocal(1.0-black)*(yellow-black));
   pixel->colorspace=CMYKColorspace;
   pixel->red=QuantumRange*cyan;
   pixel->green=QuantumRange*magenta;
@@ -101,9 +101,20 @@ static inline MagickBooleanType IsGrayColorspace(
   return(MagickFalse);
 }
 
+static inline MagickBooleanType IsHueCompatibleColorspace(
+  const ColorspaceType colorspace)
+{
+  if ((colorspace == HCLColorspace) || (colorspace == HCLpColorspace) ||
+      (colorspace == HSBColorspace) || (colorspace == HSIColorspace) ||
+      (colorspace == HSLColorspace) || (colorspace == HSVColorspace))
+    return(MagickTrue);
+  return(MagickFalse);
+}
+
 static inline MagickBooleanType IsRGBColorspace(const ColorspaceType colorspace)
 {
-  if ((colorspace == RGBColorspace) || (colorspace == scRGBColorspace))
+  if ((colorspace == RGBColorspace) || (colorspace == scRGBColorspace) ||
+      (colorspace == LinearGRAYColorspace))
     return(MagickTrue);
   return(MagickFalse);
 }
@@ -120,8 +131,18 @@ static inline MagickBooleanType IssRGBCompatibleColorspace(
   const ColorspaceType colorspace)
 {
   if ((colorspace == sRGBColorspace) || (colorspace == RGBColorspace) ||
-      (colorspace == scRGBColorspace) || (colorspace == GRAYColorspace) ||
-      (colorspace == LinearGRAYColorspace))
+      (colorspace == scRGBColorspace) || (colorspace == TransparentColorspace) ||
+      (colorspace == GRAYColorspace) || (colorspace == LinearGRAYColorspace))
+    return(MagickTrue);
+  return(MagickFalse);
+}
+
+static inline MagickBooleanType IsYCbCrCompatibleColorspace(
+  const ColorspaceType colorspace)
+{
+  if ((colorspace == YCbCrColorspace) ||
+      (colorspace == Rec709YCbCrColorspace) ||
+      (colorspace == Rec601YCbCrColorspace))
     return(MagickTrue);
   return(MagickFalse);
 }

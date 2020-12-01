@@ -23,7 +23,7 @@
 %                                 August 2003                                 %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -850,7 +850,7 @@ WandExport void MagickResetIterator(MagickWand *wand)
 %  MagickReadImage() will be prepended before any image in the wand.
 %
 %  Also the current image has been set to the first image (if any) in the
-%  Magick Wand.  Using MagickNextImage() will then set teh current image
+%  Magick Wand.  Using MagickNextImage() will then set the current image
 %  to the second image in the list (if present).
 %
 %  This operation is similar to MagickResetIterator() but differs in how
@@ -1017,7 +1017,7 @@ WandExport void MagickWandGenesis(void)
 %
 %  MagickWandTerminus() terminates the MagickWand environment.
 %
-%  The format of the MaickWandTerminus method is:
+%  The format of the MagickWandTerminus method is:
 %
 %      void MagickWandTerminus(void)
 %

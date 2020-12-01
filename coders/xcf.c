@@ -17,7 +17,7 @@
 %                               November 2001                                 %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -716,8 +716,14 @@ static MagickBooleanType load_level(Image *image,XCFDocInfo *inDocInfo,
     and we can simply return.
   */
   offset=GetXCFOffset(image,inDocInfo);
+  if (EOFBlob(image) != MagickFalse)
+    ThrowBinaryException(CorruptImageError,"UnexpectedEndOfFile",
+      image->filename);
   if (offset == 0)
-    return(MagickTrue);
+    {
+      (void) SetImageBackgroundColor(image,exception);
+      return(MagickTrue);
+    }
   /*
     Initialise the reference for the in-memory tile-compression
   */
@@ -870,7 +876,7 @@ static void InitXCFImage(XCFLayerInfo *outLayer,ExceptionInfo *exception)
   outLayer->image->page.y=outLayer->offset_y;
   outLayer->image->page.width=outLayer->width;
   outLayer->image->page.height=outLayer->height;
-  (void) SetImageProperty(outLayer->image,"label",(char *)outLayer->name,
+  (void) SetImageProperty(outLayer->image,"label",(char *) outLayer->name,
     exception);
 }
 
@@ -1036,6 +1042,7 @@ static MagickBooleanType ReadOneLayer(const ImageInfo *image_info,Image* image,
     {
       outLayer->image->background_color.alpha_trait=BlendPixelTrait;
       outLayer->image->alpha_trait=BlendPixelTrait;
+      (void) SetImageBackgroundColor(outLayer->image,exception);
     }
 
   InitXCFImage(outLayer,exception);
@@ -1055,8 +1062,8 @@ static MagickBooleanType ReadOneLayer(const ImageInfo *image_info,Image* image,
   /* read in the hierarchy */
   offset=SeekBlob(image, hierarchy_offset, SEEK_SET);
   if (offset != hierarchy_offset)
-    (void) ThrowMagickException(exception,GetMagickModule(),
-      CorruptImageError,"InvalidImageHeader","`%s'",image->filename);
+    ThrowBinaryException(CorruptImageError,"InvalidImageHeader",
+      image->filename);
   if (load_hierarchy (image, inDocInfo, outLayer, exception) == 0)
     return(MagickFalse);
 
@@ -1232,8 +1239,8 @@ static Image *ReadXCFImage(const ImageInfo *image_info,ExceptionInfo *exception)
         /* Cannot rely on prop_size here--the value is set incorrectly
            by some Gimp versions.
         */
-        size_t num_colours = ReadBlobMSBLong(image);
-        if (DiscardBlobBytes(image,3*num_colours) == MagickFalse)
+        size_t num_colors = ReadBlobMSBLong(image);
+        if (DiscardBlobBytes(image,3*num_colors) == MagickFalse)
           ThrowFileException(exception,CorruptImageError,
             "UnexpectedEndOfFile",image->filename);
     /*

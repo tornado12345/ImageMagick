@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -160,11 +160,7 @@ static Image *ReadHDRImage(const ImageInfo *image_info,ExceptionInfo *exception)
     i,
     x;
 
-  register unsigned char
-    *p;
-
   ssize_t
-    count,
     y;
 
   unsigned char
@@ -263,7 +259,7 @@ static Image *ReadHDRImage(const ImageInfo *image_info,ExceptionInfo *exception)
           } while (isalnum(c) || (c == '_'));
           *p='\0';
           value_expected=MagickFalse;
-          while ((isspace((int) ((unsigned char) c)) != 0) || (c == '='))
+          while ((isspace(c) != 0) || (c == '='))
           {
             if (c == '=')
               value_expected=MagickTrue;
@@ -375,7 +371,7 @@ static Image *ReadHDRImage(const ImageInfo *image_info,ExceptionInfo *exception)
           }
         }
     if ((image->columns == 0) && (image->rows == 0))
-      while (isspace((int) ((unsigned char) c)) != 0)
+      while (isspace(c) != 0)
         c=ReadBlobByte(image);
   }
   if ((LocaleCompare(format,"32-bit_rle_rgbe") != 0) &&
@@ -406,6 +402,9 @@ static Image *ReadHDRImage(const ImageInfo *image_info,ExceptionInfo *exception)
   (void) memset(pixels,0,4*image->columns*sizeof(*pixels));
   for (y=0; y < (ssize_t) image->rows; y++)
   {
+    ssize_t
+      count;
+
     if (image->compression != RLECompression)
       {
         count=ReadBlob(image,4*image->columns*sizeof(*pixels),pixels);
@@ -425,6 +424,9 @@ static Image *ReadHDRImage(const ImageInfo *image_info,ExceptionInfo *exception)
           }
         else
           {
+            register unsigned char
+              *p;
+
             p=pixels;
             for (i=0; i < 4; i++)
             {
@@ -785,9 +787,13 @@ static MagickBooleanType WriteHDRImage(const ImageInfo *image_info,Image *image,
             exponent;
 
           gamma=frexp(gamma,&exponent)*256.0/gamma;
-          pixel[0]=(unsigned char) (gamma*QuantumScale*GetPixelRed(image,p));
-          pixel[1]=(unsigned char) (gamma*QuantumScale*GetPixelGreen(image,p));
-          pixel[2]=(unsigned char) (gamma*QuantumScale*GetPixelBlue(image,p));
+          if (GetPixelRed(image,p) > 0)
+            pixel[0]=(unsigned char) (gamma*QuantumScale*GetPixelRed(image,p));
+          if (GetPixelGreen(image,p) > 0)
+            pixel[1]=(unsigned char) (gamma*QuantumScale*
+              GetPixelGreen(image,p));
+          if (GetPixelBlue(image,p) > 0)
+            pixel[2]=(unsigned char) (gamma*QuantumScale*GetPixelBlue(image,p));
           pixel[3]=(unsigned char) (exponent+128);
         }
       if ((image->columns >= 8) && (image->columns <= 0x7ffff))

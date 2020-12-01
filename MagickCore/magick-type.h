@@ -1,12 +1,12 @@
 /*
-  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
 
   You may not use this file except in compliance with the License.  You may
   obtain a copy of the License at
 
     https://imagemagick.org/script/license.php
- 
+
   Unless required by applicable law or agreed to in writing, software
   distributed under the License is distributed on an "AS IS" BASIS,
   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -19,6 +19,10 @@
 #define MAGICKCORE_MAGICK_TYPE_H
 
 #include "MagickCore/magick-config.h"
+
+#if MAGICKCORE_HAVE_UINTPTR_T
+#  include <stdint.h>
+#endif
 
 #if defined(__cplusplus) || defined(c_plusplus)
 extern "C" {
@@ -36,6 +40,9 @@ extern "C" {
 #  define MagickULLConstant(c)  ((MagickSizeType) (c ## ULL))
 #endif
 
+#if defined(__s390__)
+typedef double MagickFloatType;
+#else
 #if MAGICKCORE_SIZEOF_FLOAT_T == 0
 typedef float MagickFloatType;
 #elif (MAGICKCORE_SIZEOF_FLOAT_T == MAGICKCORE_SIZEOF_FLOAT)
@@ -46,6 +53,7 @@ typedef double MagickFloatType;
 typedef double MagickFloatType;
 #else
 #error Your MagickFloatType type is neither a float, nor a double, nor a long double
+#endif
 #endif
 #if MAGICKCORE_SIZEOF_DOUBLE_T == 0
 typedef double MagickDoubleType;
@@ -107,7 +115,7 @@ typedef MagickDoubleType Quantum;
 #else
 #error "MAGICKCORE_QUANTUM_DEPTH must be one of 8, 16, 32, or 64"
 #endif
-#define MagickEpsilon  (1.0e-12)
+#define MagickEpsilon  1.0e-12
 #define MagickMaximumValue  1.79769313486231570E+308
 #define MagickMinimumValue   2.22507385850720140E-308
 #define MagickStringify(macro_or_string)  MagickStringifyArg(macro_or_string)
@@ -136,6 +144,13 @@ typedef __int64 MagickOffsetType;
 typedef unsigned __int64 MagickSizeType;
 #define MagickOffsetFormat  "I64i"
 #define MagickSizeFormat  "I64u"
+#endif
+
+#if MAGICKCORE_HAVE_UINTPTR_T || defined(uintptr_t)
+typedef uintptr_t MagickAddressType;
+#else
+/* Hope for the best, I guess. */
+typedef size_t MagickAddressType;
 #endif
 
 #if defined(_MSC_VER) && (_MSC_VER == 1200)
@@ -181,7 +196,7 @@ typedef enum
 #  define IsNaN(a) ((a) != (a))
 #endif
 #if !defined(INFINITY)
-#  define INFINITY (-logf(0f))
+#  define INFINITY ((double) -logf(0f))
 #endif
 
 typedef struct _BlobInfo BlobInfo;

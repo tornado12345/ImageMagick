@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -673,13 +673,15 @@ static MagickBooleanType EncodeImage(const ImageInfo *image_info,Image *image,
       /*
         Probe hash table.
       */
+      next_pixel=MagickFalse;
+      displacement=1;
       index=(Quantum) ((size_t) GetPixelIndex(image,p) & 0xff);
       p+=GetPixelChannels(image);
       k=(ssize_t) (((size_t) index << (MaxGIFBits-8))+waiting_code);
       if (k >= MaxHashTable)
         k-=MaxHashTable;
-      next_pixel=MagickFalse;
-      displacement=1;
+      if (k < 0)
+        continue;
       if (hash_code[k] > 0)
         {
           if ((hash_prefix[k] == waiting_code) &&
@@ -1028,6 +1030,7 @@ static Image *ReadGIFImage(const ImageInfo *image_info,ExceptionInfo *exception)
   meta_image=AcquireImage(image_info,exception);  /* metadata container */
   meta_image->page.width=ReadBlobLSBShort(image);
   meta_image->page.height=ReadBlobLSBShort(image);
+  meta_image->iterations=1;
   flag=(unsigned char) ReadBlobByte(image);
   profiles=(LinkedListInfo *) NULL;
   background=(unsigned char) ReadBlobByte(image);
@@ -1166,16 +1169,16 @@ static Image *ReadGIFImage(const ImageInfo *image_info,ExceptionInfo *exception)
                   MagickTrue : MagickFalse;
                 (void) LogMagickEvent(CoderEvent,GetMagickModule(),
                   "    Reading GIF application extension");
-                info=(unsigned char *) AcquireQuantumMemory(255UL,
-                  sizeof(*info));
+                reserved_length=255;
+                info=(unsigned char *) AcquireQuantumMemory((size_t)
+                  reserved_length,sizeof(*info));
                 if (info == (unsigned char *) NULL)
                   ThrowGIFException(ResourceLimitError,
                     "MemoryAllocationFailed");
-                (void) memset(info,0,255UL*sizeof(*info));
-                reserved_length=255;
+                (void) memset(info,0,reserved_length*sizeof(*info));
                 for (info_length=0; ; )
                 {
-                  block_length=(int) ReadBlobBlock(image,&info[info_length]);
+                  block_length=(int) ReadBlobBlock(image,info+info_length);
                   if (block_length == 0)
                     break;
                   info_length+=block_length;
@@ -1270,11 +1273,10 @@ static Image *ReadGIFImage(const ImageInfo *image_info,ExceptionInfo *exception)
     local_colors=BitSet((int) flag,0x80) == 0 ? global_colors : one <<
       ((size_t) (flag & 0x07)+1);
     image->colors=local_colors;
-    if (opacity >= (ssize_t) image->colors)
-      {
-        image->colors++;
-        opacity=(-1);
-      }
+    if (opacity == (ssize_t) image->colors)
+      image->colors++;
+    else if (opacity > (ssize_t) image->colors)
+      opacity=(-1);
     image->ticks_per_second=100;
     image->alpha_trait=opacity >= 0 ? BlendPixelTrait : UndefinedPixelTrait;
     if ((image->columns == 0) || (image->rows == 0))
@@ -1604,9 +1606,6 @@ static MagickBooleanType WriteGIFImage(const ImageInfo *image_info,Image *image,
   /*
     Write images to file.
   */
-  if ((write_info->adjoin != MagickFalse) &&
-      (GetNextImageInList(image) != (Image *) NULL))
-    write_info->interlace=NoInterlace;
   scene=0;
   one=1;
   imageListLength=GetImageListLength(image);

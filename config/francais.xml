@@ -519,6 +519,9 @@
         <message name="ImageListRequired">
           une liste d'images est requise
         </message>
+        <message name="ImageSequenceRequired">
+          une séquence d'images est requise
+        </message>
         <message name="ImageSizeDiffers">
           différences dans la taille de l'image
         </message>
@@ -631,6 +634,9 @@
         <message name="GeometryDoesNotContainImage">
           image non incluse dans la géométrie
         </message>
+        <message name="ImageSequenceRequired">
+          une séquence d'images est requise
+        </message>
         <message name="InterpretPropertyFailure">
           l'échec d'interpréter s'échappe de propriété d'image
         </message>
@@ -731,9 +737,6 @@
         <message name="ReferenceIsNotMyType">
           référence de type erroné
         </message>
-        <message name="SetReadOnlyProperty">
-          tenter d'établir propriété en lecture seule
-        </message>
         <message name="SteganoImageRequired">
           image stégano requise
         </message>
@@ -763,6 +766,9 @@
         </message>
         <message name="UnbalancedParenthesis">
           parenthèse non fermée
+        </message>
+        <message name="UndefinedVariable">
+          undefined variable
         </message>
         <message name="UnrecognizedAttribute">
           attribut non reconnu
@@ -980,6 +986,9 @@
         </message>
         <message name="NoSuchElement">
           élément absent de la liste
+        </message>
+        <message name="SetReadOnlyProperty">
+          tenter d'établir propriété en lecture seule
         </message>
         <message name="UnknownImageProperty">
           image propriété non reconnus

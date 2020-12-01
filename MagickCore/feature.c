@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -586,7 +586,8 @@ MagickExport Image *CannyEdgeImage(const Image *image,const double radius,
 %  each of four directions (horizontal, vertical, left and right diagonals)
 %  for the specified distance.  The features include the angular second
 %  moment, contrast, correlation, sum of squares: variance, inverse difference
-%  moment, sum average, sum varience, sum entropy, entropy, difference variance,%  difference entropy, information measures of correlation 1, information
+%  moment, sum average, sum varience, sum entropy, entropy, difference variance,
+%  difference entropy, information measures of correlation 1, information
 %  measures of correlation 2, and maximum correlation coefficient.  You can
 %  access the red channel contrast, for example, like this:
 %
@@ -1643,25 +1644,35 @@ MagickExport ChannelFeatures *GetImageFeatures(const Image *image,
           /*
             Maximum Correlation Coefficient.
           */
-          Q[z][y].direction[i].red+=cooccurrence[z][x].direction[i].red*
-            cooccurrence[y][x].direction[i].red/density_x[z].direction[i].red/
-            density_y[x].direction[i].red;
-          Q[z][y].direction[i].green+=cooccurrence[z][x].direction[i].green*
-            cooccurrence[y][x].direction[i].green/
-            density_x[z].direction[i].green/density_y[x].direction[i].red;
-          Q[z][y].direction[i].blue+=cooccurrence[z][x].direction[i].blue*
-            cooccurrence[y][x].direction[i].blue/density_x[z].direction[i].blue/
-            density_y[x].direction[i].blue;
+          if ((fabs(density_x[z].direction[i].red) > MagickEpsilon) &&
+              (fabs(density_y[x].direction[i].red) > MagickEpsilon))
+            Q[z][y].direction[i].red+=cooccurrence[z][x].direction[i].red*
+              cooccurrence[y][x].direction[i].red/density_x[z].direction[i].red/
+              density_y[x].direction[i].red;
+          if ((fabs(density_x[z].direction[i].green) > MagickEpsilon) &&
+              (fabs(density_y[x].direction[i].red) > MagickEpsilon))
+            Q[z][y].direction[i].green+=cooccurrence[z][x].direction[i].green*
+              cooccurrence[y][x].direction[i].green/
+              density_x[z].direction[i].green/density_y[x].direction[i].red;
+          if ((fabs(density_x[z].direction[i].blue) > MagickEpsilon) &&
+              (fabs(density_y[x].direction[i].blue) > MagickEpsilon))
+            Q[z][y].direction[i].blue+=cooccurrence[z][x].direction[i].blue*
+              cooccurrence[y][x].direction[i].blue/
+              density_x[z].direction[i].blue/density_y[x].direction[i].blue;
           if (image->colorspace == CMYKColorspace)
-            Q[z][y].direction[i].black+=cooccurrence[z][x].direction[i].black*
-              cooccurrence[y][x].direction[i].black/
-              density_x[z].direction[i].black/density_y[x].direction[i].black;
+            if ((fabs(density_x[z].direction[i].black) > MagickEpsilon) &&
+                (fabs(density_y[x].direction[i].black) > MagickEpsilon))
+              Q[z][y].direction[i].black+=cooccurrence[z][x].direction[i].black*
+                cooccurrence[y][x].direction[i].black/
+                density_x[z].direction[i].black/density_y[x].direction[i].black;
           if (image->alpha_trait != UndefinedPixelTrait)
-            Q[z][y].direction[i].alpha+=
-              cooccurrence[z][x].direction[i].alpha*
-              cooccurrence[y][x].direction[i].alpha/
-              density_x[z].direction[i].alpha/
-              density_y[x].direction[i].alpha;
+            if ((fabs(density_x[z].direction[i].alpha) > MagickEpsilon) &&
+                (fabs(density_y[x].direction[i].alpha) > MagickEpsilon))
+              Q[z][y].direction[i].alpha+=
+                cooccurrence[z][x].direction[i].alpha*
+                cooccurrence[y][x].direction[i].alpha/
+                density_x[z].direction[i].alpha/
+                density_y[x].direction[i].alpha;
         }
       }
       channel_features[RedPixelChannel].contrast[i]+=z*z*
@@ -1726,12 +1737,13 @@ MagickExport ChannelFeatures *GetImageFeatures(const Image *image,
 %  recommand Canny) to identify lines in the image.  The algorithm accumulates
 %  counts for every white pixel for every possible orientation (for angles from
 %  0 to 179 in 1 degree increments) and distance from the center of the image to
-%  the corner (in 1 px increments) and stores the counts in an accumulator matrix
-%  of angle vs distance. The size of the accumulator is 180x(diagonal/2). Next
-%  it searches this space for peaks in counts and converts the locations of the
-%  peaks to slope and intercept in the normal x,y input image space. Use the
-%  slope/intercepts to find the endpoints clipped to the bounds of the image. The
-%  lines are then drawn. The counts are a measure of the length of the lines
+%  the corner (in 1 px increments) and stores the counts in an accumulator
+%  matrix of angle vs distance. The size of the accumulator is 180x(diagonal/2).
+%  Next it searches this space for peaks in counts and converts the locations
+%  of the peaks to slope and intercept in the normal x,y input image space. Use
+%  the slope/intercepts to find the endpoints clipped to the bounds of the
+%  image. The lines are then drawn. The counts are a measure of the length of
+%  the lines.
 %
 %  The format of the HoughLineImage method is:
 %
@@ -1808,7 +1820,7 @@ static Image *RenderHoughLines(const ImageInfo *image_info,const size_t columns,
     draw_info->primitive=FileToString(image->filename,~0UL,exception);
   else
     {
-      draw_info->primitive=(char *) AcquireMagickMemory((size_t)
+      draw_info->primitive=(char *) AcquireQuantumMemory(1,(size_t)
         GetBlobSize(image)+1);
       if (draw_info->primitive != (char *) NULL)
         {
@@ -2287,7 +2299,7 @@ MagickExport Image *MeanShiftImage(const Image *image,const size_t width,
               }
           }
         }
-        gamma=1.0/count;
+        gamma=PerceptibleReciprocal(count);
         mean_location.x=gamma*sum_location.x;
         mean_location.y=gamma*sum_location.y;
         mean_pixel.red=gamma*sum_pixel.red;

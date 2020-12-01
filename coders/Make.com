@@ -82,6 +82,7 @@ $call Make mono.c
 $call Make mtv.c
 $call Make mvg.c
 $call Make null.c
+$call Make ora.c
 $call Make otb.c
 $call Make palm.c
 $call Make pango.c
@@ -121,6 +122,7 @@ $call Make thumbnail.c
 $call Make tiff.c
 $call Make tile.c
 $call Make tim.c
+$call Make tim2.c
 $call Make ttf.c
 $call Make txt.c
 $call Make uil.c
@@ -153,9 +155,9 @@ $library/create libCoders.olb aai,art,avs,bgr,bmp,braille,clip,clipboard,cip, -
   cmyk,cut,dcm,dds,debug,dib,dng,dps,dpx,emf,ept,exr,fax,fd,fits,fpx,gif, -
   gradient,gray,hald,histogram,hrz,html,icon,info,inline,ipl,jbig,jpeg,jp2, -
   jnx,json,hdr,label,cals,caption,palm,mac,magick,map,mat,matte,pango,rgf, -
-  meta,miff,mpc,mpr,msl,mpeg,mono,mtv,mvg,null,otb,pattern,pcd,pcl,pcx,pdb, -
+  meta,miff,mpc,mpr,msl,mpeg,mono,mtv,mvg,null,ora,otb,pattern,pcd,pcl,pcx,pdb, -
   pdf,pes,pict,pix,plasma,png,pnm,preview,ps,ps2,ps3,psd,pwp,raw,rgb,rla,rle, -
-  sct,sfw,sgi,stegano,sun,svg,tga,thumbnail,tiff,tile,tim,ttf,txt,uil,url, -
+  sct,sfw,sgi,stegano,sun,svg,tga,thumbnail,tiff,tile,tim,tim2,ttf,txt,uil,url, -
   uyvy,vicar,vid,viff,wbmp,webp,wmf,wpg,x,xbm,xc,xcf,xpm,xps,xwd,ycbcr,yuv, -
   mask,screenshot,vips,sixel,xtrn, -
   cin,magick,scr,[-.magickcore]compress,[-.magickcore]prervicccm

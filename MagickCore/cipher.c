@@ -16,7 +16,7 @@
 %                               March  2003                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -290,7 +290,7 @@ static inline void AddRoundKey(const unsigned int *ciphertext,
     plaintext[i]=key[i] ^ ciphertext[i];
 }
 
-static inline unsigned char ByteMultiply(const unsigned char alpha,
+static inline unsigned int ByteMultiply(const unsigned char alpha,
   const unsigned char beta)
 {
   /*
@@ -298,7 +298,7 @@ static inline unsigned char ByteMultiply(const unsigned char alpha,
   */
   if ((alpha == 0) || (beta == 0))
     return(0);
-  return(InverseLog[(Log[alpha]+Log[beta]) % 0xff]);
+  return((unsigned int) InverseLog[(Log[alpha]+Log[beta]) % 0xff]);
 }
 
 static inline unsigned int ByteSubTransform(unsigned int x,
@@ -310,8 +310,10 @@ static inline unsigned int ByteSubTransform(unsigned int x,
   /*
     Non-linear layer resists differential and linear cryptoanalysis attacks.
   */
-  key=(s_box[x & 0xff]) | (s_box[(x >> 8) & 0xff] << 8) |
-    (s_box[(x >> 16) & 0xff] << 16) | (s_box[(x >> 24) & 0xff] << 24);
+  key=((unsigned int) s_box[x & 0xff]) |
+    ((unsigned int) s_box[(x >> 8) & 0xff] << 8) |
+    ((unsigned int) s_box[(x >> 16) & 0xff] << 16) |
+    ((unsigned int) s_box[(x >> 24) & 0xff] << 24);
   return(key);
 }
 
@@ -362,7 +364,7 @@ static void InitializeRoundKey(const unsigned char *ciphertext,
   {
     value=0;
     for (j=0; j < 4; j++)
-      value|=(*p++ << (8*j));
+      value|=((unsigned int) *p++ << (8*j));
     plaintext[i]=key[i] ^ value;
   }
   /*
@@ -1033,8 +1035,10 @@ static void SetAESKey(AESInfo *aes_info,const StringInfo *key)
   (void) memcpy(datum,GetStringInfoDatum(key),MagickMin(
     GetStringInfoLength(key),GetStringInfoLength(aes_info->key)));
   for (i=0; i < n; i++)
-    aes_info->encipher_key[i]=datum[4*i] | (datum[4*i+1] << 8) |
-      (datum[4*i+2] << 16) | (datum[4*i+3] << 24);
+    aes_info->encipher_key[i]=(unsigned int) datum[4*i] |
+      ((unsigned int) datum[4*i+1] << 8) |
+      ((unsigned int) datum[4*i+2] << 16) |
+      ((unsigned int) datum[4*i+3] << 24);
   beta=1;
   bytes=(AESBlocksize/4)*(aes_info->rounds+1);
   for (i=n; i < bytes; i++)

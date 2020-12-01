@@ -27,7 +27,6 @@ Image Settings:
   \-clip                clip along the first path from the 8BIM profile
   \-clip-mask filename  associate a clip mask with the image
   \-clip-path id        clip along a named path from the 8BIM profile
-  \-colors value        preferred number of colors in the image
   \-colorspace type     alternate image colorspace
   \-comment string      annotate image with comment
   \-compose operator    set image composite operator
@@ -35,7 +34,7 @@ Image Settings:
   \-decipher filename   convert cipher pixels to plain pixels
   \-define format:option
                        define one or more image format options
-  \-delay value         display the next image after pausing
+  \-delay centiseconds  display the next image after pausing
   \-density geometry    horizontal and vertical density of the image
   \-depth value         image depth
   \-direction type      render text right-to-left or left-to-right
@@ -130,6 +129,8 @@ Image Operators:
   \-auto-threshold method
                        automatically perform image thresholding
   \-bench iterations    measure performance
+  \-bilateral-blur geometry
+                        non-linear, edge-preserving, and noise-reducing smoothing filter
   \-black-threshold value
                        force all pixels below the threshold into black
   \-blue-shift factor   simulate a scene at nighttime in the moonlight
@@ -148,6 +149,9 @@ Image Operators:
   \-clip-path id        clip along a named path from the 8BIM profile
   \-colorize value      colorize the image with the fill color
   \-color-matrix matrix apply color correction to the image
+  \-colors value        preferred number of colors in the image
+  \-color-threshold start_color-stop_color
+                       force all pixels in the color range to white otherwise black
   \-connected-component connectivity
                        connected-components uniquely labeled
   \-contrast            enhance or reduce the image contrast
@@ -186,6 +190,7 @@ Image Operators:
   \-identify            identify the format and characteristics of the image
   \-ift                 implements the inverse discrete Fourier transform (DFT)
   \-implode amount      implode image pixels about the center
+  \-kmeans geometry     K means color reduction
   \-lat geometry        local adaptive thresholding
   \-layers method       optimize or compare image layers
   \-level value         adjust the level of image contrast
@@ -269,6 +274,7 @@ Image Operators:
   \-wave geometry       alter an image along a sine wave
   \-wavelet-denoise threshold
                         removes noise from the image using a wavelet transform
+  \-white-balance       automagically adjust white balance of image
   \-white-threshold value
                        force all pixels above the threshold into white
 
@@ -326,4 +332,4 @@ By default, the image format of `file' is determined by its magic number.  To sp
 ImageMagick(1)
 
 .SH COPYRIGHT
-\fBCopyright (C) 1999-2019 ImageMagick Studio LLC. Additional copyrights and licenses apply to this software, see file://@DOCUMENTATION_PATH@/www/license.html or http://imagemagick.org/script/license.php\fP
+\fBCopyright (C) 1999-2020 ImageMagick Studio LLC. Additional copyrights and licenses apply to this software, see file://@DOCUMENTATION_PATH@/www/license.html or http://imagemagick.org/script/license.php\fP

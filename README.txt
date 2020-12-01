@@ -5,7 +5,7 @@ Introduction to ImageMagick
   200) including PNG, JPEG, GIF, HEIC, TIFF, DPX, EXR, WebP, Postscript,
   PDF, and SVG. Use ImageMagick to resize, flip, mirror, rotate, distort,
   shear and transform images, adjust image colors, apply various special
-  effects, or draw text, lines, polygons, ellipses and Bézier curves.
+  effects, or draw text, lines, polygons, ellipses and Bezier curves.
   
   The functionality of ImageMagick is typically utilized from the command
   line or you can use the features from programs written in your favorite
@@ -17,7 +17,7 @@ Introduction to ImageMagick
   (Tcl/TK). With a language interface, use ImageMagick to modify or create
   images dynamically and automagically.
 
-  ImageMagick utilizes multiple computational threads to increase performance
+  ImageMagick utilize multiple computational threads to increase performance
   and can read, process, or write mega-, giga-, or tera-pixel image sizes.
   
   ImageMagick is free software delivered as a ready-to-run binary distribution
@@ -30,7 +30,7 @@ Introduction to ImageMagick
   that includes memory error and thread data race detection to prevent
   security vulnerabilities.
 
-  The current release is the ImageMagick 7.0.8-* series. It runs on Linux,
+  The current release is the ImageMagick 7.0.9-* series. It runs on Linux,
   Windows, Mac Os X, iOS, Android OS, and others.
 
   The authoritative ImageMagick web site is https://imagemagick.org. The
@@ -99,7 +99,7 @@ Features and Capabilities
       * ImageMagick on the iPhone: convert, edit, or compose images on your
         iPhone or iPad.
   
-  Examples of ImageMagick Usage * https://imagemagick.org/Usage/
+  Examples of ImageMagick Usage * https://legacy.imagemagick.org/Usage/
   shows how to use ImageMagick from the command-line to accomplish any
   of these tasks and much more. Also, see Fred's ImageMagick Scripts @
   http://www.fmwconcepts.com/imagemagick/: a plethora of command-line scripts

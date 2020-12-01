@@ -1,12 +1,12 @@
 /*
-  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
-  
+
   You may not use this file except in compliance with the License.  You may
   obtain a copy of the License at
-  
+
     https://imagemagick.org/script/license.php
-  
+
   Unless required by applicable law or agreed to in writing, software
   distributed under the License is distributed on an "AS IS" BASIS,
   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -21,6 +21,7 @@
 */
 #include "coders/aai.h"
 #include "coders/art.h"
+#include "coders/ashlar.h"
 #include "coders/avs.h"
 #include "coders/bgr.h"
 #include "coders/bmp.h"
@@ -60,8 +61,10 @@
 #if defined(MAGICKCORE_OPENEXR_DELEGATE)
   #include "coders/exr.h"
 #endif
+#include "coders/farbfeld.h"
 #include "coders/fax.h"
 #include "coders/fits.h"
+#include "coders/fl32.h"
 #if defined(MAGICKCORE_FLIF_DELEGATE)
   #include "coders/flif.h"
 #endif
@@ -92,6 +95,10 @@
   #include "coders/jpeg.h"
 #endif
 #include "coders/json.h"
+#if defined(MAGICKCORE_JXL_DELEGATE)
+  #include "coders/jxl.h"
+#endif
+#include "coders/kernel.h"
 #include "coders/label.h"
 #include "coders/mac.h"
 #include "coders/magick.h"
@@ -103,12 +110,12 @@
 #include "coders/miff.h"
 #include "coders/mono.h"
 #include "coders/mpc.h"
-#include "coders/mpeg.h"
 #include "coders/mpr.h"
 #include "coders/msl.h"
 #include "coders/mtv.h"
 #include "coders/mvg.h"
 #include "coders/null.h"
+#include "coders/ora.h"
 #include "coders/otb.h"
 #include "coders/palm.h"
 #include "coders/pango.h"
@@ -153,6 +160,7 @@
 #endif
 #include "coders/tile.h"
 #include "coders/tim.h"
+#include "coders/tim2.h"
 #if defined(MAGICKCORE_FREETYPE_DELEGATE)
   #include "coders/ttf.h"
 #endif
@@ -162,6 +170,7 @@
 #include "coders/uyvy.h"
 #include "coders/vicar.h"
 #include "coders/vid.h"
+#include "coders/video.h"
 #include "coders/viff.h"
 #include "coders/vips.h"
 #include "coders/wbmp.h"

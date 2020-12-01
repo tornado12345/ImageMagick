@@ -23,7 +23,6 @@ Image Settings:
   \-bordercolor color   border color
   \-caption string      assign a caption to an image
   \-cdl filename        color correct with a color decision list
-  \-colors value        preferred number of colors in the image
   \-colorspace type     alternate image colorspace
   \-comment string      annotate image with comment
   \-compose operator    set image composite operator
@@ -31,7 +30,7 @@ Image Settings:
   \-decipher filename   convert cipher pixels to plain pixels
   \-define format:option
                        define one or more image format options
-  \-delay value         display the next image after pausing
+  \-delay centiseconds  display the next image after pausing
   \-density geometry    horizontal and vertical density of the image
   \-depth value         image depth
   \-direction type      render text right-to-left or left-to-right
@@ -128,6 +127,8 @@ Image Operators:
   \-auto-threshold method
                        automatically perform image thresholding
   \-bench iterations    measure performance
+  \-bilateral-blur geometry     
+                        non-linear, edge-preserving, and noise-reducing smoothing filter
   \-black-threshold value
                        force all pixels below the threshold into black
   \-blue-shift          simulate a scene at nighttime in the moonlight
@@ -146,6 +147,9 @@ Image Operators:
   \-clip-path id        clip along a named path from the 8BIM profile
   \-colorize value      colorize the image with the fill color
   \-color-matrix matrix apply color correction to the image
+  \-colors value        preferred number of colors in the image
+  \-color-threshold start_color-stop_color
+                       force all pixels in the color range to white otherwise black
   \-connected-component connectivity
                        connected-components uniquely labeled
   \-contrast            enhance or reduce the image contrast
@@ -186,6 +190,7 @@ Image Operators:
   \-implode amount      implode image pixels about the center
   \-interpolative-resize geometry
                        resize image using interpolation
+  \-kmeans geometry     K means color reduction
   \-lat geometry        local adaptive thresholding
   \-layers method       optimize or compare image layers
   \-level value         adjust the level of image contrast
@@ -268,6 +273,7 @@ Image Operators:
   \-wave geometry       alter an image along a sine wave
   \-wavelet-denoise threshold
                         removes noise from the image using a wavelet transform
+  \-white-balance       automagically adjust white balance of image
   \-white-threshold value
                        force all pixels above the threshold into white
 
@@ -325,4 +331,4 @@ ImageMagick(1)
 
 .SH COPYRIGHT
 
-\fBCopyright (C) 1999-2019 ImageMagick Studio LLC. Additional copyrights and licenses apply to this software, see file://@DOCUMENTATION_PATH@/www/license.html or http://imagemagick.org/script/license.php\fP
+\fBCopyright (C) 1999-2020 ImageMagick Studio LLC. Additional copyrights and licenses apply to this software, see file://@DOCUMENTATION_PATH@/www/license.html or http://imagemagick.org/script/license.php\fP
